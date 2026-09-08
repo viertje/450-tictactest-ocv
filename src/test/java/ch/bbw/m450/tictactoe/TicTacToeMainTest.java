@@ -3,9 +3,18 @@ package ch.bbw.m450.tictactoe;
 import static ch.bbw.m450.tictactoe.TestBoards.boardFrom;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
+
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import ch.bbw.m450.tictactoe.TicTacToePlayer.Stone;
 import ch.bbw.m450.tictactoe.players.GreedyPlayer;
@@ -13,9 +22,12 @@ import ch.bbw.m450.tictactoe.players.GreedyPlayer;
 /**
  * Tests for {@link TicTacToeMain}.
  * <p>
- * The board layouts are built by the {@link TestBoards} helper, the repeated assertions are wrapped
- * in {@link #assertWins} / {@link #assertDoesNotWin}, and the mutable starting state is rebuilt by
- * the {@link #setUp} fixture before every single test.
+ * Board layouts are built by the {@link TestBoards} helper, repeated assertions are wrapped in
+ * {@link #assertWins} / {@link #assertDoesNotWin}, and the mutable starting state is rebuilt by the
+ * {@link #setUp} fixture before every test.
+ * <p>
+ * Constellations that differ only in their data are covered by parameterized tests, so that adding
+ * another board means adding one line instead of one method.
  */
 class TicTacToeMainTest {
 
@@ -37,7 +49,7 @@ class TicTacToeMainTest {
 	}
 
 	// ------------------------------------------------------------------
-	// Helpers: readable assertions
+	// Helpers
 	// ------------------------------------------------------------------
 
 	private void assertWins(Stone[] board, Stone color) {
@@ -52,104 +64,90 @@ class TicTacToeMainTest {
 				.isFalse();
 	}
 
-	// ------------------------------------------------------------------
-	// isWin: positive cases, one per winning line
-	// ------------------------------------------------------------------
-
-	@Test
-	void detectsTopRowWin() {
-		assertWins(boardFrom("XXX",
-				"OO.",
-				"..."), Stone.CROSS);
-	}
-
-	@Test
-	void detectsMiddleRowWin() {
-		assertWins(boardFrom("OO.",
-				"XXX",
-				"..."), Stone.CROSS);
-	}
-
-	@Test
-	void detectsBottomRowWin() {
-		assertWins(boardFrom(".OO",
+	/**
+	 * @return a board where the given color owns the whole top row
+	 */
+	private static Stone[] topRowWinFor(Stone color) {
+		return boardFrom(color == Stone.CROSS ? "XXX" : "OOO",
 				"...",
-				"XXX"), Stone.CROSS);
-	}
-
-	@Test
-	void detectsLeftColumnWin() {
-		assertWins(boardFrom("X..",
-				"XOO",
-				"X.."), Stone.CROSS);
-	}
-
-	@Test
-	void detectsMiddleColumnWin() {
-		assertWins(boardFrom(".X.",
-				"OXO",
-				".X."), Stone.CROSS);
-	}
-
-	@Test
-	void detectsRightColumnWin() {
-		assertWins(boardFrom("..X",
-				"OOX",
-				"..X"), Stone.CROSS);
-	}
-
-	@Test
-	void detectsDiagonalWin() {
-		assertWins(boardFrom("X..",
-				"OXO",
-				"..X"), Stone.CROSS);
-	}
-
-	@Test
-	void detectsAntiDiagonalWin() {
-		assertWins(boardFrom("..X",
-				"OXO",
-				"X.."), Stone.CROSS);
-	}
-
-	@Test
-	void detectsWinForCircleAsWell() {
-		assertWins(boardFrom("OOO",
-				"XX.",
-				"..."), Stone.CIRCLE);
+				"...");
 	}
 
 	// ------------------------------------------------------------------
-	// isWin: negative cases
+	// isWin: every winning line, supplied as complex objects (Stone[])
 	// ------------------------------------------------------------------
 
+	/**
+	 * Data source for {@link #detectsEveryWinningLine}. Must be static, and must not be private,
+	 * so that JUnit can call it.
+	 */
+	static Stream<Arguments> winningLinesForCross() {
+		return Stream.of(
+				arguments("top row", boardFrom("XXX",
+						"OO.",
+						"...")),
+				arguments("middle row", boardFrom("OO.",
+						"XXX",
+						"...")),
+				arguments("bottom row", boardFrom(".OO",
+						"...",
+						"XXX")),
+				arguments("left column", boardFrom("X..",
+						"XOO",
+						"X..")),
+				arguments("middle column", boardFrom(".X.",
+						"OXO",
+						".X.")),
+				arguments("right column", boardFrom("..X",
+						"OOX",
+						"..X")),
+				arguments("diagonal", boardFrom("X..",
+						"OXO",
+						"..X")),
+				arguments("anti-diagonal", boardFrom("..X",
+						"OXO",
+						"X..")));
+	}
+
+	@ParameterizedTest(name = "CROSS wins on the {0}")
+	@MethodSource("winningLinesForCross")
+	void detectsEveryWinningLine(String line, Stone[] board) {
+		assertWins(board, Stone.CROSS);
+	}
+
+	// ------------------------------------------------------------------
+	// isWin: constellations that must NOT count as a win
+	// ------------------------------------------------------------------
+
+	@ParameterizedTest(name = "no win for CROSS on [{0}][{1}][{2}]")
+	@CsvSource({
+			"..., ..., ...",  // empty board
+			"XX., OO., ...",  // only two in a row
+			"XXO, ..., ...",  // line blocked by the opponent
+			"X.X, OO., ...",  // gap in the middle of the row
+			"X.., .X., ...",  // scattered stones, no line
+			"OOO, XX., ...",  // CIRCLE wins here, CROSS does not
+	})
+	void detectsNoWinOnIncompleteLines(String top, String middle, String bottom) {
+		assertDoesNotWin(boardFrom(top, middle, bottom), Stone.CROSS);
+	}
+
 	@Test
-	void emptyBoardHasNoWinner() {
+	void emptyBoardHasNoWinnerAtAll() {
 		assertDoesNotWin(emptyBoard, Stone.CROSS);
 		assertDoesNotWin(emptyBoard, Stone.CIRCLE);
 	}
 
-	@Test
-	void twoInARowIsNotAWin() {
-		assertDoesNotWin(boardFrom("XX.",
-				"OO.",
-				"..."), Stone.CROSS);
-	}
+	// ------------------------------------------------------------------
+	// isWin: the same rule must hold for both colors
+	// ------------------------------------------------------------------
 
-	@Test
-	void lineBlockedByTheOpponentIsNotAWin() {
-		assertDoesNotWin(boardFrom("XXO",
-				"...",
-				"..."), Stone.CROSS);
-	}
-
-	@Test
-	void aWinForOneColorIsNoWinForTheOther() {
-		var crossWins = boardFrom("XXX",
-				"OO.",
-				"...");
-		assertWins(crossWins, Stone.CROSS);
-		assertDoesNotWin(crossWins, Stone.CIRCLE);
+	@ParameterizedTest(name = "a top row of {0} is a win for {0} only")
+	@EnumSource(Stone.class)
+	void aWinForOneColorIsNeverAWinForTheOpponent(Stone color) {
+		var board = topRowWinFor(color);
+		assertWins(board, color);
+		assertDoesNotWin(board, color.opponent());
 	}
 
 	// ------------------------------------------------------------------
@@ -179,18 +177,16 @@ class TicTacToeMainTest {
 				.hasMessage("players must differ");
 	}
 
-	@Test
-	void playingBelowTheBoardIsRejected() {
-		assertThatThrownBy(() -> TicTacToeMain.play(new ScriptedPlayer(-1), oPlayer))
+	/**
+	 * Valid positions are 0..8, so -1 and 9 are the two boundary values just outside the board.
+	 * The extremes are added to show that the check does not overflow.
+	 */
+	@ParameterizedTest(name = "position {0} is outside the board")
+	@ValueSource(ints = {-1, TicTacToeMain.BOARD_SIZE, Integer.MIN_VALUE, Integer.MAX_VALUE})
+	void playingOutsideTheBoardIsRejected(int position) {
+		assertThatThrownBy(() -> TicTacToeMain.play(new ScriptedPlayer(position), oPlayer))
 				.isInstanceOf(IllegalStateException.class)
-				.hasMessageContaining("cannot play to position -1");
-	}
-
-	@Test
-	void playingAboveTheBoardIsRejected() {
-		assertThatThrownBy(() -> TicTacToeMain.play(new ScriptedPlayer(TicTacToeMain.BOARD_SIZE), oPlayer))
-				.isInstanceOf(IllegalStateException.class)
-				.hasMessageContaining("cannot play to position 9");
+				.hasMessageContaining("cannot play to position " + position);
 	}
 
 	@Test

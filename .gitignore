@@ -16,3 +16,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# CI workflows must never be caught by the leading ".*" rule above
+!.github/
+!.github/**

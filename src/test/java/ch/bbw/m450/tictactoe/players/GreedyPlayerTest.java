@@ -6,8 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
-import ch.bbw.m450.tictactoe.TestBoards;
 import ch.bbw.m450.tictactoe.TicTacToePlayer.Stone;
 
 /**
@@ -23,23 +24,28 @@ class GreedyPlayerTest {
 		player = new GreedyPlayer();
 	}
 
-	@Test
-	void playsTopLeftOnAnEmptyBoard() {
-		assertThat(player.play(TestBoards.emptyBoard(), Stone.CROSS)).isZero();
+	/**
+	 * The expected values cover both boundaries of the board: the first field (0) on an empty
+	 * board and the last field (8) on an almost full one.
+	 */
+	@ParameterizedTest(name = "on [{0}][{1}][{2}] the greedy player picks {3}")
+	@CsvSource({
+			"..., ..., ..., 0",  // empty board -> very first field
+			"X.., ..., ..., 1",  // first field taken
+			"XO., ..., ..., 2",  // first two fields taken
+			"XOX, ..., ..., 3",  // first row full -> continues in the second row
+			"XOX, OXO, OX., 8",  // only the last field is left
+	})
+	void picksTheFirstFreeField(String top, String middle, String bottom, int expected) {
+		assertThat(player.play(boardFrom(top, middle, bottom), Stone.CROSS)).isEqualTo(expected);
 	}
 
-	@Test
-	void skipsOccupiedFields() {
+	@ParameterizedTest(name = "the choice does not depend on the own color ({0})")
+	@CsvSource({"CROSS", "CIRCLE"})
+	void ignoresTheOwnColor(Stone colorToPlay) {
 		assertThat(player.play(boardFrom("XO.",
 				"...",
-				"..."), Stone.CROSS)).isEqualTo(2);
-	}
-
-	@Test
-	void takesTheLastFreeField() {
-		assertThat(player.play(boardFrom("XOX",
-				"OXO",
-				"OX."), Stone.CROSS)).isEqualTo(8);
+				"..."), colorToPlay)).isEqualTo(2);
 	}
 
 	@Test
