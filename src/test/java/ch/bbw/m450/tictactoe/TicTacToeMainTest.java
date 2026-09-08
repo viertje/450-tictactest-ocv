@@ -3,6 +3,7 @@ package ch.bbw.m450.tictactoe;
 import static ch.bbw.m450.tictactoe.TestBoards.boardFrom;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Named.named;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.stream.Stream;
@@ -83,30 +84,30 @@ class TicTacToeMainTest {
 	 */
 	static Stream<Arguments> winningLinesForCross() {
 		return Stream.of(
-				arguments("top row", boardFrom("XXX",
+				arguments(named("top row", boardFrom("XXX",
 						"OO.",
-						"...")),
-				arguments("middle row", boardFrom("OO.",
+						"..."))),
+				arguments(named("middle row", boardFrom("OO.",
 						"XXX",
-						"...")),
-				arguments("bottom row", boardFrom(".OO",
+						"..."))),
+				arguments(named("bottom row", boardFrom(".OO",
 						"...",
-						"XXX")),
-				arguments("left column", boardFrom("X..",
+						"XXX"))),
+				arguments(named("left column", boardFrom("X..",
 						"XOO",
-						"X..")),
-				arguments("middle column", boardFrom(".X.",
+						"X.."))),
+				arguments(named("middle column", boardFrom(".X.",
 						"OXO",
-						".X.")),
-				arguments("right column", boardFrom("..X",
+						".X."))),
+				arguments(named("right column", boardFrom("..X",
 						"OOX",
-						"..X")),
-				arguments("diagonal", boardFrom("X..",
+						"..X"))),
+				arguments(named("diagonal", boardFrom("X..",
 						"OXO",
-						"..X")),
-				arguments("anti-diagonal", boardFrom("..X",
+						"..X"))),
+				arguments(named("anti-diagonal", boardFrom("..X",
 						"OXO",
-						"X..")));
+						"X.."))));
 	}
 
 	@ParameterizedTest(name = "CROSS wins on the {0}")
