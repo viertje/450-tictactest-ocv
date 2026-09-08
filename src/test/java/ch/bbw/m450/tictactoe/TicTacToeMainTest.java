@@ -111,7 +111,7 @@ class TicTacToeMainTest {
 
 	@ParameterizedTest(name = "CROSS wins on the {0}")
 	@MethodSource("winningLinesForCross")
-	void detectsEveryWinningLine(String line, Stone[] board) {
+	void detectsEveryWinningLine(Stone[] board) {
 		assertWins(board, Stone.CROSS);
 	}
 
