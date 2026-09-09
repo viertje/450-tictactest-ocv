@@ -20,3 +20,7 @@ yarn-error.log*
 # CI workflows must never be caught by the leading ".*" rule above
 !.github/
 !.github/**
+
+# .devcontainer would otherwise be swallowed by the leading ".*" rule above
+!.devcontainer/
+!.devcontainer/**
