@@ -12,16 +12,26 @@ jobs:
     name: Compile
     runs-on: ubuntu-latest
 
+    # Restricts GITHUB_TOKEN to what this job actually needs.
+    # "packages: read" is what allows it to pull the private image below.
+    permissions:
+      contents: read
+      packages: read
+
+    # The job runs inside our own image from the GitHub Container Registry.
+    # It already contains JDK 25 (Zulu), so no setup-java step is needed.
+    container:
+      image: ghcr.io/viertje/450-tictactest-ocv:latest
+      # The image declares "USER dev", but the runner creates the job workspace
+      # as root -- without this override, checkout fails with "permission denied".
+      options: --user root
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up JDK 25 (Zulu)
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '25'
-          cache: 'gradle'
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
