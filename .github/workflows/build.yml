@@ -2,14 +2,14 @@ name: Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
-    name: Compile
+    name: Build & Test
     runs-on: ubuntu-latest
 
     # Restricts GITHUB_TOKEN to what this job actually needs.
@@ -36,5 +36,15 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Assemble
-        run: ./gradlew assemble --no-daemon
+      - name: Build and run tests
+        run: ./gradlew build --no-daemon
+
+      - name: Upload JaCoCo coverage report
+        # Runs even if the tests above failed, so a broken build still
+        # leaves a coverage report behind for debugging.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: build/reports/jacoco/test/html/
+          if-no-files-found: error
