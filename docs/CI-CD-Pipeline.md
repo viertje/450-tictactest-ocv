@@ -9,9 +9,9 @@ Container-Image in der GitHub Container Registry (GHCR).
 
 ```
 .devcontainer/Dockerfile
-        |  (Publish container image)
+        |  (Publish container image: baut, taggt vX.Y.Z, oeffnet Freigabe-PR)
         v
-ghcr.io/viertje/450-tictactest-ocv:latest
+ghcr.io/viertje/450-tictactest-ocv:vX.Y.Z   (erst nach Merge der Freigabe-PR aktiv)
         |  (Build)
         v
 ./gradlew build  ->  JaCoCo-Coverage-Report (HTML, als Artifact)
@@ -20,8 +20,12 @@ ghcr.io/viertje/450-tictactest-ocv:latest
 | Baustein | Datei | Zweck |
 |---|---|---|
 | Image-Definition | `.devcontainer/Dockerfile` | Build- und Testumgebung: JDK 25 (Zulu) auf Alpine |
-| Image publizieren | `.github/workflows/dockerimageupdate.yml` | baut das Image und lädt es nach GHCR |
+| Image publizieren + versionieren | `.github/workflows/dockerimageupdate.yml` | baut das Image, taggt es (inkl. Semantic Version), lädt es nach GHCR und eröffnet die Freigabe-PR |
 | Projekt bauen | `.github/workflows/build.yml` | führt Build und Tests **im** Image aus, erzeugt den JaCoCo-Coverage-Report |
+| Lokale Umgebung | `.devcontainer/devcontainer.json` | zieht dasselbe versionierte Image für VS Code / IntelliJ Dev Containers |
+
+Details zur Versionierung und zum Freigabeprozess: siehe
+`docs/DevContainer-Versioning.md`.
 
 ## Das Image
 
@@ -39,16 +43,22 @@ auf das (standardmässig private) Package.
 ## Workflow 1: Publish container image
 
 - **Auslöser:** Push auf `main`, wenn `.devcontainer/Dockerfile` geändert wurde; zusätzlich manuell über `workflow_dispatch`
-- **Rechte:** `packages: write`
-- **Ablauf:** Login an `ghcr.io` mit `GITHUB_TOKEN` → Buildx einrichten → Image bauen und pushen
-- **Tags:** `:latest` (wird von `build.yml` konsumiert) und `:<commit-sha>` als unveränderlicher Tag zur Fehlersuche
-- **`concurrency`:** verhindert, dass zwei Läufe gleichzeitig `:latest` überschreiben
+- **Job `publish`:** Login an `ghcr.io` mit `GITHUB_TOKEN` → Buildx einrichten → nächste Patch-Version anhand der vorhandenen `vX.Y.Z`-Git-Tags ermitteln → Image bauen und pushen → Git-Tag für die neue Version erstellen und pushen
+- **Tags:** `:latest` und `:<commit-sha>` (Debugging), sowie `:vX.Y.Z` (die eigentlich massgebliche Version)
+- **Job `open-release-pr`** (läuft nach `publish`): schliesst zuerst noch offene, ältere Freigabe-PRs automatisch (nur eine soll gleichzeitig offen sein), ersetzt dann den Image-Tag in `build.yml` und `devcontainer.json` durch die neue `:vX.Y.Z`-Version und eröffnet dafür automatisch einen Pull Request
+- **`concurrency`:** verhindert, dass zwei Läufe gleichzeitig um `:latest` bzw. die nächste Versionsnummer konkurrieren
+
+Wichtig: Ein neues Image ist damit *veröffentlicht* (in der GHCR vorhanden),
+aber noch nicht *freigegeben* — `build.yml` und `devcontainer.json`
+verwenden weiterhin die vorherige Version, bis die Freigabe-PR manuell
+geprüft und gemergt wird. Das Mergen ist die offizielle Freigabe. Details:
+`docs/DevContainer-Versioning.md`.
 
 ## Workflow 2: Build
 
 - **Auslöser:** Push auf einen beliebigen Branch, Pull Request auf `main`, zusätzlich manuell
 - **Rechte:** `packages: read` (um das private Image zu ziehen)
-- **Umgebung:** Der Job läuft über `container:` direkt im Image aus GHCR
+- **Umgebung:** Der Job läuft über `container:` direkt im Image aus GHCR, gepinnt auf eine konkrete `vX.Y.Z`-Version (nicht `:latest`)
 - **Schritte:** Checkout → `chmod +x ./gradlew` → `./gradlew build --no-daemon` → JaCoCo-HTML-Report als Artifact hochladen
 
 `./gradlew build` löst über `check` auch `test` aus. `build.gradle` hängt
@@ -83,7 +93,8 @@ docker push ghcr.io/viertje/450-tictactest-ocv:latest
 
 GHCR akzeptiert nur **klassische** Personal Access Tokens; fein granulare Tokens
 funktionieren nicht. Seit Workflow 1 existiert, geschieht dieser Schritt
-automatisch.
+automatisch — inklusive Versionierung, seit dessen Erweiterung um Job
+`open-release-pr` (siehe `docs/DevContainer-Versioning.md`).
 
 ## Änderungen gegenüber der vorherigen Pipeline
 
@@ -96,9 +107,19 @@ automatisch.
 | Dockerfile mit CRLF | auf LF umgestellt und über `.gitattributes` abgesichert |
 | `./gradlew assemble` (nur kompilieren) | `./gradlew build` (kompiliert und testet) + JaCoCo-HTML-Report als Artifact |
 | `build.yml` nur auf `main` | `build.yml` auf jedem Branch (push) |
+| kein `devcontainer.json` | `devcontainer.json` mit VS-Code-Extensions, zieht das versionierte GHCR-Image |
+| nur `:latest`/`:<sha>`, sofort aktiv überall | Semantic-Version-Tags (`vX.Y.Z`) + Freigabe-PR als Gate, siehe `docs/DevContainer-Versioning.md` |
 
 ## Bekannte Einschränkungen
 
-1. **Keine garantierte Reihenfolge.** Ändert ein Push den Dockerfile, starten beide Workflows gleichzeitig. `build.yml` zieht dann noch das alte `:latest`. Eine echte Reihenfolge wäre nur mit `needs:` innerhalb eines einzigen Workflows möglich. Praktisch bedeutet das eine Verzögerung um einen Commit.
+1. ~~**Keine garantierte Reihenfolge.**~~ Durch die Versionierung faktisch
+   behoben: `build.yml` und `devcontainer.json` sind auf eine konkrete
+   `vX.Y.Z`-Version gepinnt und wechseln nur, wenn die Freigabe-PR gemergt
+   wird — sie "rennen" nicht mehr hinter einem sich bewegenden `:latest`
+   her. Ein Push, der den Dockerfile ändert, startet zwar weiterhin
+   `build.yml` (Push-Trigger) parallel zu `dockerimageupdate.yml`, aber
+   `build.yml` verwendet dabei einfach die zu diesem Zeitpunkt noch gültige,
+   vorherige Version — kein Fehlerfall, sondern das gewünschte Verhalten.
 2. **Zwei Läufe pro Pull-Request-Commit.** Weil sowohl `push` (jeder Branch) als auch `pull_request` (auf `main`) auslösen, läuft `build.yml` für denselben Commit zweimal, sobald ein Pull Request offen ist. Funktional unproblematisch, aber unnötiger Ressourcenverbrauch. Liesse sich beheben, indem der `pull_request`-Trigger entfernt wird (der `push`-Trigger deckt denselben Commit bereits ab, solange keine Forks verwendet werden).
-3. **Coverage-Wert ist nicht maschinenlesbar.** Der JaCoCo-Report wird nur als HTML erzeugt (`xml.required = false`). Für den Coverage-Vergleich zwischen `main` und Branch (Auftrag 3) wird zusätzlich ein XML- oder CSV-Report nötig sein.
+3. **Coverage-Wert ist nicht maschinenlesbar.** Der JaCoCo-Report wird nur als HTML erzeugt (`xml.required = false`). Für den Coverage-Vergleich zwischen `main` und Branch (JaCoCo-Auftrag 3) wird zusätzlich ein XML- oder CSV-Report nötig sein.
+4. ~~Mehrere offene Freigabe-PRs möglich.~~ **Automatisch behoben:** `open-release-pr` schliesst beim Eröffnen einer neuen Freigabe-PR alle noch offenen älteren automatisch. Details: `docs/DevContainer-Versioning.md`.
