@@ -109,3 +109,21 @@ Aktuell nicht durch Tests abgedeckt (IST-Zustand):
 - `HumanPlayer` (liest von der Konsole, nicht automatisiert getestet)
 - Konsolenausgabe / `toString(Stone[])`
 - Ungültige Board-Grössen ausserhalb der Helper-Prüfung
+
+
+## 7. Feedback Timeo Lutz
+
+Insgesamt ein sehr gutes Testkonzept. Die Struktur ist klar gegliedert, der IST-Zustand wird konsequent und ehrlich beschrieben, und die Bezüge zwischen den Testzielen (TZ-01–07) und den Testfällen (TF-01–12) sind durchgehend nachvollziehbar.
+ 
+Stärken:
+ 
+Vollständige, professionelle Kapitelstruktur mit übersichtlichen Tabellen
+Testziele nummeriert und lückenlos mit den Testfällen verknüpft
+Konsequente IST-Beschreibung — bestehende Lücken (ungetesteter HumanPlayer, CI ohne Testausführung, keine Coverage) werden offen benannt statt versteckt
+Gute methodische Tiefe: saubere Abgrenzung Unit- vs. Integrationstest, Grenzwertanalyse, Einsatz von Test-Doubles (ScriptedPlayer) und Parameterized Tests
+Verbesserungspotenzial:
+ 
+Nur 3 von 12 Testfällen sind im Detail beschrieben — hier wäre mehr Vollständigkeit wünschenswert
+Die Abdeckung von play() ist mit nur zwei Spielverläufen dünn (z.B. fehlt ein Sieg durch CIRCLE)
+Kleine Ungenauigkeit bei der Versionsangabe (JUnit Jupiter "6.1.3")
+Bewertung: 5.5 — eine überdurchschnittliche Arbeit, die alle Anforderungen erfüllt und methodisch überzeugt. Für die Bestnote fehlen lediglich vollständige Testfall-Details und eine etwas breitere play()-Abdeckung.
