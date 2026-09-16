@@ -1,0 +1,25 @@
+{
+  // Dev Container spec: https://containers.dev/implementors/json_reference/
+  // Pulls the published, versioned image from GHCR (built from Dockerfile by
+  // the "Publish container image" workflow) instead of building locally, so
+  // the local environment and CI use the exact same released image. This tag
+  // is bumped automatically by that workflow's release PR -- see
+  // docs/DevContainer-Versioning.md. Do not edit this tag by hand; a manual
+  // edit is just overwritten (or conflicts with) the next automated release.
+  "name": "TicTacTest",
+  "image": "ghcr.io/viertje/450-tictactest-ocv:latest",
+  // Matches the "dev" user (UID:GID 1000:1000) created in the Dockerfile.
+  "remoteUser": "dev",
+  // gradlew can lose its executable bit on a Windows checkout.
+  "postCreateCommand": "chmod +x ./gradlew",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Gradle task view / run & debug Gradle tasks.
+        "vscjava.vscode-gradle",
+        // Java language support, debugger, test runner, Maven, project manager.
+        "vscjava.vscode-java-pack"
+      ]
+    }
+  }
+}
