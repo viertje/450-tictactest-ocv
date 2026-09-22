@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TicTacTest — Coverage History</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    background: light-dark(#ffffff, #0d1117);
+    color: light-dark(#1f2328, #e6edf3);
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  p.sub { color: light-dark(#57606a, #8b949e); margin-top: 0; }
+  #chart-wrap { position: relative; height: 420px; margin-top: 1.5rem; }
+  #empty {
+    display: none;
+    padding: 2rem;
+    text-align: center;
+    color: light-dark(#57606a, #8b949e);
+    border: 1px dashed light-dark(#d0d7de, #30363d);
+    border-radius: 8px;
+    margin-top: 1.5rem;
+  }
+</style>
+</head>
+<body>
+  <h1>TicTacTest — Test Coverage History</h1>
+  <p class="sub">Line coverage of <code>main</code>, measured by JaCoCo on every push. Updated automatically by the "Build &amp; Test" workflow.</p>
+  <div id="chart-wrap"><canvas id="coverage-chart"></canvas></div>
+  <div id="empty">No data yet — this fills in after the next push to <code>main</code>.</div>
+
+  <script>
+    fetch("coverage-history.csv")
+      .then((r) => r.text())
+      .then((text) => {
+        const rows = text.trim().split("\n").slice(1).filter(Boolean);
+        if (rows.length === 0) {
+          document.getElementById("chart-wrap").style.display = "none";
+          document.getElementById("empty").style.display = "block";
+          return;
+        }
+        const dates = [];
+        const commits = [];
+        const coverage = [];
+        for (const row of rows) {
+          const [date, commit, percent] = row.split(",");
+          dates.push(date);
+          commits.push(commit);
+          coverage.push(parseFloat(percent));
+        }
+        new Chart(document.getElementById("coverage-chart"), {
+          type: "line",
+          data: {
+            labels: dates,
+            datasets: [{
+              label: "Line coverage (%)",
+              data: coverage,
+              borderColor: "#2f81f7",
+              backgroundColor: "rgba(47, 129, 247, 0.15)",
+              tension: 0.2,
+              fill: true,
+              pointRadius: 3,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { min: 0, max: 100, ticks: { callback: (v) => v + "%" } } },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  afterLabel: (ctx) => "commit " + commits[ctx.dataIndex],
+                },
+              },
+            },
+          },
+        });
+      })
+      .catch((err) => {
+        document.getElementById("chart-wrap").style.display = "none";
+        const empty = document.getElementById("empty");
+        empty.style.display = "block";
+        empty.textContent = "Could not load coverage-history.csv: " + err;
+      });
+  </script>
+</body>
+</html>
