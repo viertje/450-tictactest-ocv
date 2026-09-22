@@ -90,6 +90,15 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
 
+    # GITHUB_TOKEN can NEVER be granted write access to .github/workflows/* --
+    # there is no permissions: key that unlocks it (an earlier attempt to add
+    # 'workflows: write' here was invalid syntax, correctly flagged by IDE
+    # schema validation -- no such key exists for GITHUB_TOKEN). The only way
+    # around this GitHub-side restriction is a token that isn't GITHUB_TOKEN:
+    # see the 'Create pull request' step below, which uses a PAT instead.
+    # contents:write / pull-requests:write below are still for GITHUB_TOKEN's
+    # own use in the two steps that don't touch build.yml (checkout, closing
+    # superseded PRs via gh).
     permissions:
       contents: write
       pull-requests: write
@@ -132,7 +141,15 @@ jobs:
       - name: Create pull request
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Must be a PAT with the 'workflow' scope, not GITHUB_TOKEN: this PR's
+          # changes touch .github/workflows/build.yml, and GitHub refuses that
+          # push from GITHUB_TOKEN unconditionally (see the permissions comment
+          # above). Repo secret RELEASE_PAT holds it -- create a classic PAT
+          # with 'public_repo' + 'workflow' scopes at
+          # https://github.com/settings/tokens, add it under
+          # Settings -> Secrets and variables -> Actions -> New repository
+          # secret. See docs/DevContainer-Versioning.md.
+          token: ${{ secrets.RELEASE_PAT }}
           commit-message: "chore(devcontainer): pin to ${{ needs.publish.outputs.version }}"
           title: "chore(devcontainer): release ${{ needs.publish.outputs.version }}"
           body: |

@@ -129,9 +129,26 @@ Repository) nötig. Dieser Lauf findet noch keinen `v*.*.*`-Tag, setzt
 - *Settings → Actions → General → Workflow permissions*: "Allow GitHub
   Actions to create and approve pull requests" muss aktiviert sein, sonst
   schlägt das Öffnen des Pull Requests ab.
-- Der `GITHUB_TOKEN` braucht `contents: write` (Tag und Branch pushen) und
-  `pull-requests: write` (PR auflisten/kommentieren/schliessen/eröffnen) —
-  im Workflow explizit pro Job gesetzt, nicht global.
+- Der `GITHUB_TOKEN` braucht `contents: write` (Git-Tag pushen im
+  `publish`-Job) und `pull-requests: write` (PRs auflisten/kommentieren/
+  schliessen im `open-release-pr`-Job) — im Workflow explizit pro Job
+  gesetzt, nicht global.
+- **Repo-Secret `RELEASE_PAT`** (classic Personal Access Token, Scopes
+  `public_repo` + `workflow`): notwendig, weil die Freigabe-PR
+  `build.yml` selbst ändert (den Image-Tag). GitHub verweigert das für
+  `GITHUB_TOKEN` **grundsätzlich** — es gibt keinen `permissions:`-Key, der
+  Schreibzugriff auf `.github/workflows/*` freischaltet (auch nicht ein
+  vermeintliches `workflows: write`, das ist keine gültige Property und
+  wird von der IDE-Schema-Validierung zurückgewiesen). Der einzige Ausweg
+  ist ein Token, das nicht `GITHUB_TOKEN` ist: ein klassischer PAT mit
+  `workflow`-Scope. Erstellen unter
+  [github.com/settings/tokens](https://github.com/settings/tokens) →
+  "Generate new token (classic)" → Scopes `public_repo` + `workflow`
+  ankreuzen, dann unter *Settings → Secrets and variables → Actions → New
+  repository secret* als `RELEASE_PAT` hinterlegen. Nur der Schritt
+  "Create pull request" in `open-release-pr` verwendet ihn (via
+  `token: ${{ secrets.RELEASE_PAT }}`), alle anderen Schritte bleiben bei
+  `GITHUB_TOKEN`.
 
 ## Bekannte Einschränkungen
 
@@ -152,3 +169,9 @@ Repository) nötig. Dieser Lauf findet noch keinen `v*.*.*`-Tag, setzt
    `build.yml`/`devcontainer.json` auf die vorherige Version). Das alte
    Image bleibt unter seinem eigenen Tag in der GHCR weiterhin verfügbar,
    da Tags nie überschrieben oder gelöscht werden.
+5. **`RELEASE_PAT` ist ein klassischer PAT, kein feingranularer.** Läuft
+   irgendwann ab bzw. muss manuell rotiert werden (GitHub erzwingt bei
+   klassischen PATs kein Ablaufdatum, aber ein selbst gesetztes ist
+   empfehlenswert). Läuft er ab, schlägt nur der "Create pull request"-
+   Schritt fehl (401/403) — `publish` (Image bauen/taggen) bleibt davon
+   unberührt.
