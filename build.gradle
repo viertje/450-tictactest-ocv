@@ -20,7 +20,7 @@ jacocoTestReport {
 	dependsOn test
 	reports {
 		html.required = true
-		xml.required = false
+		xml.required = true
 	}
 }
 
