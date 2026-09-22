@@ -7,26 +7,53 @@ on:
       - .devcontainer/Dockerfile
       - .github/workflows/dockerimageupdate.yml
   # Allows a manual rebuild from the Actions tab without changing the Dockerfile.
+  # Also how the very first version (v1.0.0) gets bootstrapped, since no Dockerfile
+  # change is needed just to start the versioning process.
   workflow_dispatch:
 
-# GITHUB_TOKEN needs write access to publish to the GitHub Container Registry.
-permissions:
-  contents: read
-  packages: write
-
-# Two pushes in quick succession must not race each other to the :latest tag.
+# Two pushes in quick succession must not race each other -- both for :latest and
+# for picking the next version number off the tag list.
 concurrency:
   group: publish-container-image
   cancel-in-progress: false
 
 jobs:
   publish:
-    name: Build and push
+    name: Build, push and tag
     runs-on: ubuntu-latest
+
+    # contents:write is for creating and pushing the new vX.Y.Z git tag.
+    permissions:
+      contents: write
+      packages: write
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Need the full tag history to find the latest vX.Y.Z tag, not just
+          # the tip commit.
+          fetch-depth: 0
+
+      - name: Determine next version
+        id: version
+        # Versioning concept: semantic version tags (vMAJOR.MINOR.PATCH) on the
+        # image, always bumping PATCH automatically -- see docs/DevContainer-Versioning.md
+        # for the reasoning. The git tag itself is the source of truth for "what
+        # was the last published version", so nothing needs to be stored twice.
+        run: |
+          latest=$(git tag --list 'v*.*.*' | sort -V | tail -n1)
+          if [ -z "$latest" ]; then
+            next="v1.0.0"
+          else
+            IFS='.' read -r major minor patch <<< "${latest#v}"
+            next="v${major}.${minor}.$((patch + 1))"
+          fi
+          echo "Next version: $next"
+          echo "version=$next" >> "$GITHUB_OUTPUT"
 
       - name: Log in to the GitHub Container Registry
         uses: docker/login-action@v3
@@ -44,8 +71,77 @@ jobs:
           context: .
           file: .devcontainer/Dockerfile
           push: true
-          # :latest is what build.yml consumes. The commit SHA is pushed as well,
-          # so every image stays reachable under an immutable tag for debugging.
+          # :latest stays for convenience/debugging; the commit SHA keeps every
+          # image reachable under an immutable tag. Neither of these is what
+          # build.yml or devcontainer.json actually pin to -- that's the vX.Y.Z
+          # tag below, only once the release PR for it has been merged.
           tags: |
             ghcr.io/viertje/450-tictactest-ocv:latest
             ghcr.io/viertje/450-tictactest-ocv:${{ github.sha }}
+            ghcr.io/viertje/450-tictactest-ocv:${{ steps.version.outputs.version }}
+
+      - name: Tag this commit with the new version
+        run: |
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+
+  open-release-pr:
+    name: Open release PR
+    needs: publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Close superseded release PRs
+        # If a Dockerfile change is pushed again before the previous release PR
+        # was merged, that old PR would otherwise sit open forever, pointing at
+        # a now-outdated version, and a reviewer could accidentally merge the
+        # wrong one. Only one release PR should ever be open at a time, so any
+        # earlier one is closed (with an explanatory comment, not silently)
+        # before the new one is opened below.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr list --state open --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("chore/devcontainer-")) | .number' |
+          while read -r pr; do
+            echo "Closing superseded release PR #$pr"
+            gh pr comment "$pr" --body \
+              "Superseded by \`${{ needs.publish.outputs.version }}\`, closing automatically. See docs/DevContainer-Versioning.md."
+            gh pr close "$pr"
+          done
+
+      - name: Pin devcontainer image to the new version
+        # This is the only place the new version becomes "consumable": build.yml
+        # (CI) and devcontainer.json (local dev environments) both reference the
+        # same ghcr.io/.../450-tictactest-ocv:<tag> string, so one replacement
+        # updates both. Until this PR is reviewed and merged, both files keep
+        # pointing at the previous, already-released version -- that review/merge
+        # step is the official Freigabe. See docs/DevContainer-Versioning.md.
+        run: |
+          sed -i "s#ghcr.io/viertje/450-tictactest-ocv:[A-Za-z0-9._-]*#ghcr.io/viertje/450-tictactest-ocv:${{ needs.publish.outputs.version }}#" \
+            .github/workflows/build.yml \
+            .devcontainer/devcontainer.json
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore(devcontainer): pin to ${{ needs.publish.outputs.version }}"
+          title: "chore(devcontainer): release ${{ needs.publish.outputs.version }}"
+          body: |
+            Automated release PR, opened after `ghcr.io/viertje/450-tictactest-ocv:${{ needs.publish.outputs.version }}` was built and pushed successfully.
+
+            Pins `build.yml` and `devcontainer.json` to this version.
+
+            **Merging this PR is the official release step.** Until then, CI and local dev
+            environments keep using the previously released version -- see
+            `docs/DevContainer-Versioning.md`.
+          branch: chore/devcontainer-${{ needs.publish.outputs.version }}
+          delete-branch: true
