@@ -9,9 +9,9 @@
 | Modul | M450 – Applikationen testen |
 | Autor | Olivier |
 | Reviewer / Auftraggeber | Dominik Berner (`bernedom`), Lehrperson |
-| Version Testkonzept | 0.1 (IST) |
-| Stand | 09.09.2026 |
-| Referenzstand Code | Branch `aufgabe_Teststrukturen_in_JUnit`, Commit `fae179d` |
+| Version Testkonzept | 0.2 (IST) |
+| Stand | 22.09.2026 |
+| Referenzstand Code | Branch `main`, Commit `ceed64e` |
 
 **Kurzbeschreibung:** TicTacTest ist eine Konsolenanwendung, die ein Tic-Tac-Toe-Spiel
 zwischen zwei Spielern austrägt. Das Spielbrett ist ein flaches Array mit neun Feldern
@@ -102,8 +102,14 @@ Die Auswahl folgt drei Kriterien:
 
 ### Abdeckung
 
-Es ist **kein Werkzeug zur Messung der Codeabdeckung** eingerichtet (kein JaCoCo im
-`build.gradle`). Die Abdeckung wird deshalb qualitativ über die Testziele argumentiert:
+Die Codeabdeckung wird mit **JaCoCo** (`build.gradle`, `toolVersion 0.8.15`) gemessen.
+`./gradlew build` führt die Tests aus und erzeugt anschliessend über
+`jacocoTestReport` einen HTML-Report (`build/reports/jacoco/test/html/`) sowie einen
+maschinenlesbaren XML-Report. In der CI läuft das bei jedem Push und Pull Request; der
+HTML-Report wird als Artifact hochgeladen, und für jeden Push auf `main` wird der
+Zeilen-Abdeckungswert zusätzlich in `coverage-history.csv` auf dem Branch `gh-pages`
+fortgeschrieben und dort als Zeitreihe visualisiert (siehe Abschnitt 6). Aktueller Stand:
+**84.4 % Line Coverage**.
 
 | Testziel | Abdeckung |
 |---|---|
@@ -113,16 +119,15 @@ Es ist **kein Werkzeug zur Messung der Codeabdeckung** eingerichtet (kein JaCoCo
 | TZ-04 | gut – doppelter Spieler, besetztes Feld, Positionen ausserhalb des Bretts |
 | TZ-05 | teilweise – je ein Sieg- und ein Unentschieden-Szenario, keine weiteren Spielverläufe |
 | TZ-06 | vollständig |
-| TZ-07 | **eingeschränkt** – die Suite ist lokal wiederholbar, läuft aber nicht automatisch in der CI (siehe Abschnitt 6) |
+| TZ-07 | vollständig – die Suite läuft automatisiert bei jedem Push und Pull Request in der CI |
 
 ### Offene Risiken
 
 | Risiko | Auswirkung |
 |---|---|
-| Die CI führt nur `./gradlew assemble` aus, keine Tests | Eine Regression fällt erst beim lokalen Testlauf auf, nicht beim Push oder im Pull Request |
 | `HumanPlayer` ist ungetestet | Eine nicht-numerische Eingabe löst eine `NumberFormatException` aus, die nirgends abgefangen wird; das Spiel stürzt ab |
-| Keine Coverage-Messung | Nicht getestete Zweige werden nicht automatisch sichtbar |
 | `toString()` ungetestet | Formatfehler in der Brettausgabe würden nicht auffallen |
+| Nur ein Sieg- und ein Unentschieden-Szenario für `play()` | Andere Spielverläufe (z. B. Sieg erst in der letzten Runde) sind nicht abgedeckt |
 
 ---
 
@@ -144,7 +149,7 @@ Gegenmassnahme.
 
 - **Lokal:** vor jedem Commit über `./gradlew test` in IntelliJ oder auf der Kommandozeile
 - **Pull Request:** Review durch `bernedom` vor dem Merge nach `main`
-- **CI:** bei jedem Push und Pull Request auf `main` – zurzeit jedoch nur Kompilierung
+- **CI:** bei jedem Push und Pull Request auf `main` – vollständiger Testlauf inkl. JaCoCo-Coverage-Report
 
 ### Erfolgskriterien (Pass/Fail)
 
@@ -169,6 +174,7 @@ Bei einem roten Test wird nicht nach `main` gemergt.
 | Testframework | JUnit Jupiter 6.1.3 (inkl. `junit-jupiter-params`) | `build.gradle` |
 | Test-Launcher | JUnit Platform Launcher | `build.gradle` |
 | Assertion-Bibliothek | AssertJ 3.27.7 | `build.gradle` |
+| Coverage-Werkzeug | JaCoCo 0.8.15 (`jacocoTestReport`, `finalizedBy`/`dependsOn test`) | `build.gradle` |
 | Testplattform-Aktivierung | `test { useJUnitPlatform() }` | `build.gradle` |
 
 ### Umgebungen
@@ -176,23 +182,33 @@ Bei einem roten Test wird nicht nach `main` gemergt.
 | Umgebung | Beschreibung |
 |---|---|
 | DEV (lokal) | Windows-Arbeitsplatz, IntelliJ IDEA, JDK über den Gradle-Daemon festgelegt |
-| CI | GitHub Actions, `ubuntu-latest`, Zulu 25, definiert in `.github/workflows/build.yml` |
+| CI | GitHub Actions, eigenes Container-Image `ghcr.io/viertje/450-tictactest-ocv:v1.0.1` (Zulu 25, siehe DevContainer-Versioning.md), definiert in `.github/workflows/build.yml` |
 | PROD | **nicht vorhanden** – das Projekt wird nicht produktiv betrieben |
 
 Der wesentliche Unterschied zwischen DEV und CI: Die lokale Maschine hat eine gewachsene
 Konfiguration, die CI startet bei jedem Lauf von null. Damit beide dasselbe Ergebnis
 liefern, sind Gradle-Version, Prüfsumme und JDK-Anforderung im Repository festgeschrieben
-und nicht der jeweiligen Maschine überlassen.
+und laufen in der CI zusätzlich im selben versionierten Container-Image wie der lokale
+Devcontainer.
 
 ### CI-Pipeline (IST)
 
-Die Datei `.github/workflows/build.yml` definiert einen Job `build`, der bei Push und Pull
-Request auf `main` läuft. Schritte: Checkout, JDK 25 (Zulu) einrichten, `gradlew`
-ausführbar machen, `./gradlew assemble --no-daemon`.
+Die Datei `.github/workflows/build.yml` definiert einen Job `build`, der bei Push (ausser
+auf `gh-pages`) und bei Pull Requests auf `main` läuft. Schritte: Checkout, `gradlew`
+ausführbar machen, `./gradlew build --no-daemon` (kompiliert **und führt die Tests aus**,
+inkl. JaCoCo-Report über `finalizedBy jacocoTestReport`), Upload des HTML-Coverage-Reports
+als Artifact.
 
-> **Wichtig für den IST-Zustand:** `assemble` kompiliert und paketiert nur. Es führt
-> **keine Tests** aus – dafür wäre `./gradlew build` oder ein eigener `test`-Schritt nötig.
-> Die automatisierte Testausführung findet zurzeit ausschliesslich lokal statt.
+Nur bei einem Push auf `main` laufen zusätzlich drei weitere Schritte: Der
+Zeilen-Abdeckungswert wird aus dem JaCoCo-XML-Report extrahiert, der Branch `gh-pages`
+wird ausgecheckt, und der Wert wird als neue Zeile an `coverage-history.csv` angehängt und
+zurück auf `gh-pages` gepusht. Der Branch `gh-pages` enthält zusätzlich eine `index.html`,
+die diese CSV per Chart.js als Zeitreihe visualisiert und über GitHub Pages veröffentlicht
+ist.
+
+> **Für den IST-Zustand:** Die automatisierte Testausführung findet nicht mehr nur lokal
+> statt – jeder Push und jeder Pull Request führt die vollständige Suite in der CI aus,
+> und ein roter Test lässt den Workflow fehlschlagen.
 
 ---
 
@@ -258,7 +274,7 @@ Alle zwölf Methoden tragen über TZ-07 zur Regressionssicherung bei.
 |---|---|---|---|
 | Testfälle schreiben und erweitern | während der Entwicklung | Olivier | IntelliJ, JUnit |
 | Testsuite lokal ausführen | vor jedem Commit | Olivier | `./gradlew test` |
-| Kompilierung prüfen | bei jedem Push / PR | GitHub Actions | `./gradlew assemble` |
+| Tests und Coverage prüfen | bei jedem Push / PR | GitHub Actions | `./gradlew build` (inkl. JaCoCo) |
 | Code- und Test-Review | vor dem Merge | `bernedom` | Pull Request auf GitHub |
 
 ### Aktueller Teststand
@@ -270,14 +286,13 @@ Alle zwölf Methoden tragen über TZ-07 zur Regressionssicherung bei.
 | Testmethoden | 12 |
 | Testfälle | 33 |
 | Letzter lokaler Testlauf | 08.09.2026, `TicTacToeMainTest`: 25 Tests, 0 Fehler, 0 Errors |
+| Line Coverage (JaCoCo, CI) | 84.4 % (Stand 22.09.2026) |
 
 ### Offene Punkte
 
 Diese Punkte beschreiben Lücken im heutigen Zustand. Sie sind bewusst nicht als geplante
 Massnahmen formuliert, sondern als das, was aktuell fehlt:
 
-1. Die CI führt keine Tests aus (`assemble` statt `build` oder eigener `test`-Job).
-2. `HumanPlayer` ist nicht getestet; ungültige Eingaben sind nicht abgefangen.
-3. Es ist keine Codeabdeckung gemessen.
-4. Für `play()` existieren nur zwei Spielverläufe (ein Sieg, ein Unentschieden).
-5. `TicTacToeMain.toString()` wird nicht direkt geprüft.
+1. `HumanPlayer` ist nicht getestet; ungültige Eingaben sind nicht abgefangen.
+2. Für `play()` existieren nur zwei Spielverläufe (ein Sieg, ein Unentschieden).
+3. `TicTacToeMain.toString()` wird nicht direkt geprüft.
