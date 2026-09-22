@@ -21,7 +21,7 @@ jobs:
     # The job runs inside our own image from the GitHub Container Registry.
     # It already contains JDK 25 (Zulu), so no setup-java step is needed.
     container:
-      image: ghcr.io/viertje/450-tictactest-ocv:latest
+      image: ghcr.io/viertje/450-tictactest-ocv:v1.0.1
       # The image declares "USER dev", but the runner creates the job workspace
       # as root -- without this override, checkout fails with "permission denied".
       options: --user root

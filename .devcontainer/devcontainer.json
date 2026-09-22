@@ -7,7 +7,7 @@
   // docs/DevContainer-Versioning.md. Do not edit this tag by hand; a manual
   // edit is just overwritten (or conflicts with) the next automated release.
   "name": "TicTacTest",
-  "image": "ghcr.io/viertje/450-tictactest-ocv:latest",
+  "image": "ghcr.io/viertje/450-tictactest-ocv:v1.0.1",
   // Matches the "dev" user (UID:GID 1000:1000) created in the Dockerfile.
   "remoteUser": "dev",
   // gradlew can lose its executable bit on a Windows checkout.
