@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [ '**' ]
+    branches-ignore: [ 'gh-pages' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -12,10 +12,10 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
 
-    # Restricts GITHUB_TOKEN to what this job actually needs.
-    # "packages: read" is what allows it to pull the private image below.
+    # contents:write is needed further down to push the updated coverage
+    # history to the gh-pages branch (main pushes only).
     permissions:
-      contents: read
+      contents: write
       packages: read
 
     # The job runs inside our own image from the GitHub Container Registry.
@@ -48,3 +48,33 @@ jobs:
           name: jacoco-report
           path: build/reports/jacoco/test/html/
           if-no-files-found: error
+
+      - name: Extract line coverage percentage
+        # Only main's coverage gets tracked over time -- a feature branch
+        # would pollute the history with numbers nobody wants to compare.
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        id: coverage
+        run: |
+          COUNTER=$(grep -o '<counter type="LINE"[^>]*/>' build/reports/jacoco/test/jacocoTestReport.xml | tail -1)
+          MISSED=$(echo "$COUNTER" | sed -E 's/.*missed="([0-9]+)".*/\1/')
+          COVERED=$(echo "$COUNTER" | sed -E 's/.*covered="([0-9]+)".*/\1/')
+          PERCENT=$(awk -v c="$COVERED" -v m="$MISSED" 'BEGIN { printf "%.1f", (c / (c + m)) * 100 }')
+          echo "percent=$PERCENT" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout gh-pages branch
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-branch
+
+      - name: Append coverage to history
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "$(date -u +%Y-%m-%d),${GITHUB_SHA::7},${{ steps.coverage.outputs.percent }}" >> gh-pages-branch/coverage-history.csv
+          cd gh-pages-branch
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add coverage-history.csv
+          git commit -m "Update coverage history: ${{ steps.coverage.outputs.percent }}% (${GITHUB_SHA::7})"
+          git push
