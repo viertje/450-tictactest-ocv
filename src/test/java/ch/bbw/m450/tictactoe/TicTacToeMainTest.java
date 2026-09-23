@@ -168,6 +168,37 @@ class TicTacToeMainTest {
 	}
 
 	// ------------------------------------------------------------------
+	// toString: board rendering
+	// ------------------------------------------------------------------
+
+	/**
+	 * Not previously covered directly (only indirectly, via the assertion helpers' failure
+	 * messages) -- added after a mutation-testing run (PIT) showed six surviving mutants inside
+	 * {@code toString}: nothing was asserting on its actual output, so none of the mutations to
+	 * its loop bounds, index math, X/O selection or empty-field check changed a test result.
+	 */
+	@Test
+	void emptyBoardShowsEveryFieldIndex() {
+		var expected = "\033[37m0\033[0m  \033[37m1\033[0m  \033[37m2\033[0m  \n"
+				+ "\033[37m3\033[0m  \033[37m4\033[0m  \033[37m5\033[0m  \n"
+				+ "\033[37m6\033[0m  \033[37m7\033[0m  \033[37m8\033[0m  \n";
+
+		assertThat(TicTacToeMain.toString(emptyBoard)).isEqualTo(expected);
+	}
+
+	@Test
+	void occupiedFieldsShowTheirStoneInsteadOfTheIndex() {
+		var board = boardFrom("X..",
+				"..O",
+				"...");
+		var expected = "\033[1mX\033[0m  \033[37m1\033[0m  \033[37m2\033[0m  \n"
+				+ "\033[37m3\033[0m  \033[37m4\033[0m  \033[1mO\033[0m  \n"
+				+ "\033[37m6\033[0m  \033[37m7\033[0m  \033[37m8\033[0m  \n";
+
+		assertThat(TicTacToeMain.toString(board)).isEqualTo(expected);
+	}
+
+	// ------------------------------------------------------------------
 	// play: negative cases and boundary values
 	// ------------------------------------------------------------------
 

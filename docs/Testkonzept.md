@@ -37,6 +37,7 @@ Die Testziele sind nummeriert, damit die Testfälle in Abschnitt 7 darauf verwei
 | TZ-05 | Ein vollständiger Spielablauf liefert ein korrektes Resultat: Gewinnfarbe oder `null` bei Unentschieden. |
 | TZ-06 | Der `GreedyPlayer` wählt deterministisch das erste freie Feld und meldet ein volles Brett als Fehler. |
 | TZ-07 | Die Kernfunktionen bleiben bei Änderungen stabil (Regression), da die Testsuite jederzeit wiederholbar ist. |
+| TZ-08 | Die textuelle Darstellung des Bretts (`toString`) zeigt für jedes Feld den korrekten Inhalt – die Feldnummer bei einem leeren Feld, sonst den Stein. |
 
 ---
 
@@ -94,7 +95,7 @@ Die Auswahl folgt drei Kriterien:
 |---|---|---|
 | `TicTacToeMain.isWin()` | ja, vollständig | alle 8 Gewinnlinien, beide Farben, Negativfälle |
 | `TicTacToeMain.play()` | ja | Sieg, Unentschieden, alle Fehlerpfade |
-| `TicTacToeMain.toString()` | nur indirekt | wird in den Assertion-Helpern zur Fehlerausgabe genutzt, aber nicht selbst geprüft |
+| `TicTacToeMain.toString()` | ja, direkt | zwei Golden-Output-Tests (leeres Brett, teilweise belegtes Brett) prüfen den kompletten String inkl. ANSI-Farbcodes |
 | `TicTacToeMain.main()` | nein | reiner Einstiegspunkt, startet ein interaktives Spiel |
 | `TicTacToePlayer.Stone.opponent()` | indirekt | wird in TF-04 verwendet |
 | `GreedyPlayer.play()` | ja, vollständig | Feldwahl, Farbunabhängigkeit, volles Brett |
@@ -126,7 +127,6 @@ fortgeschrieben und dort als Zeitreihe visualisiert (siehe Abschnitt 6). Aktuell
 | Risiko | Auswirkung |
 |---|---|
 | `HumanPlayer` ist ungetestet | Eine nicht-numerische Eingabe löst eine `NumberFormatException` aus, die nirgends abgefangen wird; das Spiel stürzt ab |
-| `toString()` ungetestet | Formatfehler in der Brettausgabe würden nicht auffallen |
 | Nur ein Sieg- und ein Unentschieden-Szenario für `play()` | Andere Spielverläufe (z. B. Sieg erst in der letzten Runde) sind nicht abgedeckt |
 
 ---
@@ -155,7 +155,7 @@ Gegenmassnahme.
 
 | Kriterium | Schwelle |
 |---|---|
-| Bestanden | `./gradlew test` endet mit `BUILD SUCCESSFUL`, 0 Fehler und 0 Errors über alle 33 Testfälle |
+| Bestanden | `./gradlew test` endet mit `BUILD SUCCESSFUL`, 0 Fehler und 0 Errors über alle 35 Testfälle |
 | Nicht bestanden | mindestens ein Testfall schlägt fehl oder bricht mit einem Error ab |
 | Abbruch | der Build bricht bereits beim Kompilieren ab; die Tests werden dann gar nicht ausgeführt |
 
@@ -216,7 +216,7 @@ ist.
 
 ### Übersicht
 
-Die Suite besteht aus **12 Testmethoden**, die durch parametrisierte Tests **33 Testfälle**
+Die Suite besteht aus **14 Testmethoden**, die durch parametrisierte Tests **35 Testfälle**
 ergeben.
 
 | ID | Testmethode | Klasse | Zielbezug | Fälle |
@@ -233,8 +233,10 @@ ergeben.
 | TF-10 | `picksTheFirstFreeField` | `GreedyPlayerTest` | TZ-06 | 5 |
 | TF-11 | `ignoresTheOwnColor` | `GreedyPlayerTest` | TZ-06 | 2 |
 | TF-12 | `throwsWhenTheBoardIsFull` | `GreedyPlayerTest` | TZ-06 | 1 |
+| TF-13 | `emptyBoardShowsEveryFieldIndex` | `TicTacToeMainTest` | TZ-08 | 1 |
+| TF-14 | `occupiedFieldsShowTheirStoneInsteadOfTheIndex` | `TicTacToeMainTest` | TZ-08 | 1 |
 
-Alle zwölf Methoden tragen über TZ-07 zur Regressionssicherung bei.
+Alle vierzehn Methoden tragen über TZ-07 zur Regressionssicherung bei.
 
 ### Detaillierte Beschreibungen
 
@@ -283,8 +285,8 @@ Alle zwölf Methoden tragen über TZ-07 zur Regressionssicherung bei.
 |---|---|
 | Testklassen | 2 (`TicTacToeMainTest`, `GreedyPlayerTest`) |
 | Hilfsklassen im Testcode | 2 (`TestBoards`, `ScriptedPlayer`) |
-| Testmethoden | 12 |
-| Testfälle | 33 |
+| Testmethoden | 14 |
+| Testfälle | 35 |
 | Letzter lokaler Testlauf | 08.09.2026, `TicTacToeMainTest`: 25 Tests, 0 Fehler, 0 Errors |
 | Line Coverage (JaCoCo, CI) | 84.4 % (Stand 22.09.2026) |
 
@@ -295,4 +297,3 @@ Massnahmen formuliert, sondern als das, was aktuell fehlt:
 
 1. `HumanPlayer` ist nicht getestet; ungültige Eingaben sind nicht abgefangen.
 2. Für `play()` existieren nur zwei Spielverläufe (ein Sieg, ein Unentschieden).
-3. `TicTacToeMain.toString()` wird nicht direkt geprüft.
