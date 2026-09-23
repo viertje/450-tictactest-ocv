@@ -1,6 +1,7 @@
 plugins {
 	id 'java'
 	id 'jacoco'
+	id 'info.solidsoft.pitest' version '1.19.0'
 }
 
 repositories {
@@ -22,6 +23,24 @@ jacocoTestReport {
 		html.required = true
 		xml.required = true
 	}
+}
+
+// Mutation testing (PIT via the gradle-pitest-plugin). Where JaCoCo answers
+// "which lines ran", PIT answers "did the tests actually notice when the
+// logic broke" -- it edits the compiled bytecode (a "mutant", e.g. flips a
+// `==` to `!=` or a `>` to `>=`) and reruns the suite; a mutant that still
+// passes is a gap the coverage percentage alone can't reveal.
+pitest {
+	junit5PluginVersion = '1.2.3'
+	targetClasses = ['ch.bbw.m450.tictactoe.*']
+	targetTests = ['ch.bbw.m450.tictactoe.*']
+	threads = 4
+	outputFormats = ['HTML', 'XML']
+	timestampedReports = false
+	// No threshold yet -- this first run is to see the baseline mutation
+	// score. Once that's known, mutationThreshold can be set to fail the
+	// build below it, the same way a coverage gate would.
+	mutationThreshold = 0
 }
 
 dependencies {
