@@ -6,6 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Named.named;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -72,6 +75,24 @@ class TicTacToeMainTest {
 		return boardFrom(color == Stone.CROSS ? "XXX" : "OOO",
 				"...",
 				"...");
+	}
+
+	/**
+	 * {@code play()} announces game-over states (the final board and the winner, or a draw) by
+	 * printing to {@code System.out} instead of returning them -- a side effect that an assertion
+	 * on the return value alone can't see. Captures whatever {@code action} prints, always
+	 * restoring the original {@code System.out} afterwards, even if {@code action} throws.
+	 */
+	private static String captureStdOut(Runnable action) {
+		var originalOut = System.out;
+		var captured = new ByteArrayOutputStream();
+		System.setOut(new PrintStream(captured, true, StandardCharsets.UTF_8));
+		try {
+			action.run();
+		} finally {
+			System.setOut(originalOut);
+		}
+		return captured.toString(StandardCharsets.UTF_8);
 	}
 
 	// ------------------------------------------------------------------
@@ -157,14 +178,21 @@ class TicTacToeMainTest {
 
 	@Test
 	void twoGreedyPlayersLetTheStartingPlayerWin() {
-		assertThat(TicTacToeMain.play(xPlayer, oPlayer)).isEqualTo(Stone.CROSS);
+		var output = captureStdOut(() ->
+				assertThat(TicTacToeMain.play(xPlayer, oPlayer)).isEqualTo(Stone.CROSS));
+
+		assertThat(output).contains("...and the winner is: " + Stone.CROSS);
 	}
 
 	@Test
 	void aFullBoardWithoutThreeInALineIsADraw() {
 		var scriptedX = new ScriptedPlayer(0, 2, 3, 7, 8);
 		var scriptedO = new ScriptedPlayer(1, 4, 5, 6);
-		assertThat(TicTacToeMain.play(scriptedX, scriptedO)).isNull();
+
+		var output = captureStdOut(() ->
+				assertThat(TicTacToeMain.play(scriptedX, scriptedO)).isNull());
+
+		assertThat(output).contains("it's a draw!");
 	}
 
 	// ------------------------------------------------------------------
@@ -216,15 +244,27 @@ class TicTacToeMainTest {
 	@ParameterizedTest(name = "position {0} is outside the board")
 	@ValueSource(ints = {-1, TicTacToeMain.BOARD_SIZE, Integer.MIN_VALUE, Integer.MAX_VALUE})
 	void playingOutsideTheBoardIsRejected(int position) {
-		assertThatThrownBy(() -> TicTacToeMain.play(new ScriptedPlayer(position), oPlayer))
-				.isInstanceOf(IllegalStateException.class)
-				.hasMessageContaining("cannot play to position " + position);
+		var output = captureStdOut(() ->
+				assertThatThrownBy(() -> TicTacToeMain.play(new ScriptedPlayer(position), oPlayer))
+						.isInstanceOf(IllegalStateException.class)
+						.hasMessageContaining("cannot play to position " + position));
+
+		// The very first move is already rejected, so the board printed just before the
+		// exception is still completely empty.
+		assertThat(output).contains(TicTacToeMain.toString(emptyBoard));
 	}
 
 	@Test
 	void playingToAnOccupiedFieldIsRejected() {
-		assertThatThrownBy(() -> TicTacToeMain.play(new ScriptedPlayer(0), new ScriptedPlayer(0)))
-				.isInstanceOf(IllegalStateException.class)
-				.hasMessageContaining("cannot play to position 0");
+		var output = captureStdOut(() ->
+				assertThatThrownBy(() -> TicTacToeMain.play(new ScriptedPlayer(0), new ScriptedPlayer(0)))
+						.isInstanceOf(IllegalStateException.class)
+						.hasMessageContaining("cannot play to position 0"));
+
+		// xPlayer's first move (to field 0) already succeeded before oPlayer's repeat is
+		// rejected, so the printed board shows CROSS already sitting on field 0.
+		assertThat(output).contains(TicTacToeMain.toString(boardFrom("X..",
+				"...",
+				"...")));
 	}
 }

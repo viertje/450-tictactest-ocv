@@ -1,0 +1,91 @@
+name: Mutation testing
+
+on:
+  # Manual only: PIT reruns the whole test suite once per mutant, so it's much
+  # slower than a normal build. Triggering it automatically on every push/PR
+  # would noticeably slow down the fast feedback loop build.yml is meant to
+  # give -- this is a deliberate, occasional check instead.
+  workflow_dispatch:
+
+jobs:
+  pitest:
+    name: Run PIT mutation testing
+    runs-on: ubuntu-latest
+
+    # Same reasoning as build.yml: nothing here needs write access, and the
+    # container is private on GHCR so packages:read is required just to pull it.
+    permissions:
+      contents: read
+      packages: read
+
+    # Same versioned devcontainer image as build.yml, so a mutation testing
+    # run uses the exact same JDK/toolchain as every other CI job and the
+    # local devcontainer.
+    container:
+      image: ghcr.io/viertje/450-tictactest-ocv:v1.0.1
+      options: --user root
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # A safety net, not an expectation -- a normal run finishes in well under
+    # this on a project this small. Without a cap a stuck run would otherwise
+    # sit for hours before GitHub's own 6h default kills it.
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Run PIT mutation testing
+        run: ./gradlew pitest --no-daemon
+
+      - name: Upload PIT HTML report
+        # Runs even if the mutation score is low -- pitest{} has no
+        # mutationThreshold set, so this step only fails to produce a report
+        # if PIT itself crashed, e.g. a compile error.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pitest-report
+          path: build/reports/pitest/
+          if-no-files-found: error
+
+      - name: Summarize mutation score
+        # Parsed from mutations.xml rather than the HTML report, for the same
+        # reason build.yml's coverage step reads JaCoCo's XML instead of its
+        # HTML: XML is meant to be parsed, HTML is meant to be read.
+        if: always()
+        run: |
+          REPORT=build/reports/pitest/mutations.xml
+          if [ ! -f "$REPORT" ]; then
+            echo "## Mutation testing (PIT)" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "No \`mutations.xml\` was produced -- the PIT run likely failed before completing. Check the *Run PIT mutation testing* step above." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          TOTAL=$(grep -o "<mutation " "$REPORT" | wc -l)
+          # detected='true' covers every mutant the test suite noticed
+          # (KILLED and TIMED_OUT alike); detected='false' covers every
+          # mutant that slipped through (SURVIVED and NO_COVERAGE alike).
+          # This is the same split PIT's own HTML report uses for its
+          # "Mutation Coverage" figure.
+          PASSED=$(grep -o "detected='true'" "$REPORT" | wc -l)
+          FAILED=$((TOTAL - PASSED))
+          PERCENT=$(awk -v p="$PASSED" -v t="$TOTAL" 'BEGIN { if (t == 0) { print "0.0" } else { printf "%.1f", (p / t) * 100 } }')
+
+          {
+            echo "## Mutation testing (PIT)"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|---|---|"
+            echo "| Mutation score | **${PERCENT}%** |"
+            echo "| Mutants passed (killed) | ${PASSED} / ${TOTAL} |"
+            echo "| Mutants failed (survived) | ${FAILED} / ${TOTAL} |"
+            echo ""
+            echo "Per-class detail (which mutant, which line, which test killed it) is in the \`pitest-report\` artifact on this run."
+          } >> "$GITHUB_STEP_SUMMARY"
