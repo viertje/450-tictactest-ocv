@@ -22,7 +22,7 @@ jobs:
     # run uses the exact same JDK/toolchain as every other CI job and the
     # local devcontainer.
     container:
-      image: ghcr.io/viertje/450-tictactest-ocv:v1.0.1
+      image: ghcr.io/viertje/450-tictactest-ocv:v1.0.2
       options: --user root
       credentials:
         username: ${{ github.actor }}

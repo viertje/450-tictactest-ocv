@@ -53,7 +53,7 @@ jobs:
     # Same pinned image as build.yml: the release is built and tested in exactly the
     # environment CI uses everywhere else.
     container:
-      image: ghcr.io/viertje/450-tictactest-ocv:v1.0.1
+      image: ghcr.io/viertje/450-tictactest-ocv:v1.0.2
       options: --user root
       credentials:
         username: ${{ github.actor }}
