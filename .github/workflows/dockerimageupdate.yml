@@ -22,7 +22,7 @@ jobs:
     name: Build, push and tag
     runs-on: ubuntu-latest
 
-    # contents:write is for creating and pushing the new vX.Y.Z git tag.
+    # contents:write is for creating and pushing the new devcontainer-vX.Y.Z git tag.
     permissions:
       contents: write
       packages: write
@@ -34,22 +34,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          # Need the full tag history to find the latest vX.Y.Z tag, not just
-          # the tip commit.
+          # Need the full tag history to find the latest devcontainer-vX.Y.Z tag,
+          # not just the tip commit.
           fetch-depth: 0
 
       - name: Determine next version
         id: version
-        # Versioning concept: semantic version tags (vMAJOR.MINOR.PATCH) on the
+        # Versioning concept: semantic versions (vMAJOR.MINOR.PATCH) on the
         # image, always bumping PATCH automatically -- see docs/DevContainer-Versioning.md
         # for the reasoning. The git tag itself is the source of truth for "what
         # was the last published version", so nothing needs to be stored twice.
+        # The git tags carry a "devcontainer-" prefix (devcontainer-v1.0.1) so they
+        # never collide with the application release tags (v1.0.0, see RELEASE.md);
+        # the image tag in GHCR stays plain vX.Y.Z.
         run: |
-          latest=$(git tag --list 'v*.*.*' | sort -V | tail -n1)
+          latest=$(git tag --list 'devcontainer-v*.*.*' | sort -V | tail -n1)
           if [ -z "$latest" ]; then
             next="v1.0.0"
           else
-            IFS='.' read -r major minor patch <<< "${latest#v}"
+            IFS='.' read -r major minor patch <<< "${latest#devcontainer-v}"
             next="v${major}.${minor}.$((patch + 1))"
           fi
           echo "Next version: $next"
@@ -73,7 +76,7 @@ jobs:
           push: true
           # :latest stays for convenience/debugging; the commit SHA keeps every
           # image reachable under an immutable tag. Neither of these is what
-          # build.yml or devcontainer.json actually pin to -- that's the vX.Y.Z
+          # the workflows or devcontainer.json actually pin to -- that's the vX.Y.Z
           # tag below, only once the release PR for it has been merged.
           tags: |
             ghcr.io/viertje/450-tictactest-ocv:latest
@@ -82,8 +85,8 @@ jobs:
 
       - name: Tag this commit with the new version
         run: |
-          git tag "${{ steps.version.outputs.version }}"
-          git push origin "${{ steps.version.outputs.version }}"
+          git tag "devcontainer-${{ steps.version.outputs.version }}"
+          git push origin "devcontainer-${{ steps.version.outputs.version }}"
 
   open-release-pr:
     name: Open release PR
@@ -127,15 +130,18 @@ jobs:
           done
 
       - name: Pin devcontainer image to the new version
-        # This is the only place the new version becomes "consumable": build.yml
-        # (CI) and devcontainer.json (local dev environments) both reference the
-        # same ghcr.io/.../450-tictactest-ocv:<tag> string, so one replacement
-        # updates both. Until this PR is reviewed and merged, both files keep
+        # This is the only place the new version becomes "consumable": the CI
+        # workflows (build.yml, mutationtesting.yml, release.yml) and
+        # devcontainer.json (local dev environments) all reference the same
+        # ghcr.io/.../450-tictactest-ocv:<tag> string, so one replacement updates
+        # all of them. Until this PR is reviewed and merged, they all keep
         # pointing at the previous, already-released version -- that review/merge
         # step is the official Freigabe. See docs/DevContainer-Versioning.md.
         run: |
           sed -i "s#ghcr.io/viertje/450-tictactest-ocv:[A-Za-z0-9._-]*#ghcr.io/viertje/450-tictactest-ocv:${{ needs.publish.outputs.version }}#" \
             .github/workflows/build.yml \
+            .github/workflows/mutationtesting.yml \
+            .github/workflows/release.yml \
             .devcontainer/devcontainer.json
 
       - name: Create pull request
@@ -155,7 +161,7 @@ jobs:
           body: |
             Automated release PR, opened after `ghcr.io/viertje/450-tictactest-ocv:${{ needs.publish.outputs.version }}` was built and pushed successfully.
 
-            Pins `build.yml` and `devcontainer.json` to this version.
+            Pins the CI workflows and `devcontainer.json` to this version.
 
             **Merging this PR is the official release step.** Until then, CI and local dev
             environments keep using the previously released version -- see

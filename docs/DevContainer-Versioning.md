@@ -35,8 +35,10 @@ offizielle Freigabe.
   Breaking Change wird der nächste Git-Tag stattdessen von Hand auf die
   gewünschte Minor/Major-Version gesetzt, bevor der nächste automatische
   Lauf wieder patcht.
-- **Git-Tags (`vX.Y.Z`) sind die einzige Quelle der Wahrheit** für die
-  zuletzt veröffentlichte Version. Es gibt bewusst keine zusätzliche
+- **Git-Tags (`devcontainer-vX.Y.Z`) sind die einzige Quelle der Wahrheit** für die
+  zuletzt veröffentlichte Version. Das Präfix `devcontainer-` trennt sie von den
+  Release-Tags der Applikation (`vX.Y.Z`, siehe `RELEASE.md`); das Image selbst
+  heisst in der GHCR weiterhin `:vX.Y.Z`. Es gibt bewusst keine zusätzliche
   `VERSION`-Datei, die aus dem Takt geraten könnte. Eine Alternative wäre
   gewesen, statt einer fortlaufenden Versionsnummer direkt den Commit-Hash
   als Tag zu verwenden (dafür entstünde keine "nächste Version"-Berechnung
@@ -48,7 +50,7 @@ offizielle Freigabe.
 - Das Image wird zusätzlich weiterhin mit `:latest` und der Commit-SHA
   getaggt (Debugging/Nachvollziehbarkeit). Diese beiden Tags werden aber von
   nichts im Repository konsumiert — massgeblich ist ausschliesslich die
-  `vX.Y.Z`-Version, die in `build.yml` und `devcontainer.json` gepinnt ist.
+  `vX.Y.Z`-Version, die in den CI-Workflows und `devcontainer.json` gepinnt ist.
 
 ## Freigabeprozess: Pull Request als Gate
 
@@ -60,12 +62,13 @@ Workflow "Publish container image", Job "publish"
   - baut das Image
   - ermittelt die nächste Version (Patch-Bump über den vorhandenen Git-Tags)
   - pusht ghcr.io/.../450-tictactest-ocv:latest, :<sha> und :vX.Y.Z
-  - erstellt und pusht den Git-Tag vX.Y.Z
+  - erstellt und pusht den Git-Tag devcontainer-vX.Y.Z
         |
         v
 Job "open-release-pr"
   - schliesst noch offene, ältere Freigabe-PRs automatisch (siehe unten)
-  - ersetzt den Image-Tag in build.yml und devcontainer.json durch :vX.Y.Z
+  - ersetzt den Image-Tag in den CI-Workflows (build.yml, mutationtesting.yml, release.yml)
+    und in devcontainer.json durch :vX.Y.Z
   - eröffnet automatisch einen neuen Pull Request
         |
         v
@@ -112,16 +115,16 @@ Schliessen mit ab.
   (VS Code) bzw. der entsprechende Neuaufbau in IntelliJs Dev-Containers-
   Unterstützung automatisch die neue Version.
 
-Beide Dateien werden vom selben `sed`-Schritt im Workflow aktualisiert, weil
-beide denselben `ghcr.io/viertje/450-tictactest-ocv:<tag>`-String enthalten
-— ein Ersetzungsschritt reicht für beide Konsument:innen.
+Alle diese Dateien werden vom selben `sed`-Schritt im Workflow aktualisiert, weil
+sie denselben `ghcr.io/viertje/450-tictactest-ocv:<tag>`-String enthalten
+— ein Ersetzungsschritt reicht für alle Konsument:innen.
 
 ## Erstes Bootstrapping
 
 Der Workflow startet automatisch nur bei einer Änderung an
 `.devcontainer/Dockerfile`. Für die allererste Version (`v1.0.0`) ist daher
 einmalig ein manueller Start über `workflow_dispatch` (Tab *Actions* im
-Repository) nötig. Dieser Lauf findet noch keinen `v*.*.*`-Tag, setzt
+Repository) nötig. Dieser Lauf findet noch keinen `devcontainer-v*.*.*`-Tag, setzt
 `v1.0.0` an und eröffnet die erste Freigabe-PR.
 
 ## Voraussetzungen im Repository

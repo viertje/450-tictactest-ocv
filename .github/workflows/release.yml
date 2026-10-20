@@ -1,0 +1,111 @@
+name: Release
+
+# A release is created ONLY by pushing a version tag (vMAJOR.MINOR.PATCH) -- a normal push to
+# main never triggers it. The tag, not a file in the repo, defines the version. See RELEASE.md.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  verify:
+    name: Verify tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history, so we can check that the tagged commit is part of main.
+          fetch-depth: 0
+
+      - name: Derive version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Tagged commit must be on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $GITHUB_REF_NAME points to a commit that is not on main."
+            exit 1
+          fi
+
+      - name: CHANGELOG must contain an entry for this version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if ! grep -qE "^## ${VERSION} - " CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## ${VERSION} - <date>' entry."
+            exit 1
+          fi
+
+  build:
+    name: Test and build JAR
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    # Same pinned image as build.yml: the release is built and tested in exactly the
+    # environment CI uses everywhere else.
+    container:
+      image: ghcr.io/viertje/450-tictactest-ocv:v1.0.1
+      options: --user root
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Run tests and build JAR
+        # `build` runs all tests first; a failing test stops here, so the release job
+        # below never runs and nothing is published.
+        run: ./gradlew build -PreleaseVersion=${{ needs.verify.outputs.version }} --no-daemon
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: tictactest-jar
+          path: build/libs/tictactest-${{ needs.verify.outputs.version }}.jar
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: tictactest-jar
+
+      - name: Extract release notes from CHANGELOG
+        # Everything between this version's heading and the next "## " heading.
+        run: |
+          awk -v v="$VERSION" 'index($0, "## " v " - ") == 1 { found = 1; next } /^## / { found = 0 } found' CHANGELOG.md > release-notes.md
+          printf '\nCommit: %s\n' "$GITHUB_SHA" >> release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "tictactest-${VERSION}.jar" \
+            --title "TicTacTest $GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --verify-tag
