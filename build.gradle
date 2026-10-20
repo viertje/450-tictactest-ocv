@@ -8,6 +8,21 @@ repositories {
 	mavenCentral()
 }
 
+// The application version is NOT hard-coded here: the release git tag (vMAJOR.MINOR.PATCH) is
+// the single source of truth, and the release workflow passes it in as -PreleaseVersion=1.0.0.
+// Local builds without the property produce a clearly-not-a-release 0.0.0-SNAPSHOT. See RELEASE.md.
+version = providers.gradleProperty('releaseVersion').getOrElse('0.0.0-SNAPSHOT')
+
+// Executable JAR: `java -jar build/libs/tictactest-<version>.jar`. The game has no runtime
+// dependencies (JUnit, AssertJ etc. are test-only), so a plain JAR with a Main-Class entry is
+// enough -- no fat/shadow JAR plugin needed.
+jar {
+	archiveBaseName = 'tictactest'
+	manifest {
+		attributes 'Main-Class': 'ch.bbw.m450.tictactoe.TicTacToeMain'
+	}
+}
+
 jacoco {
 	toolVersion = '0.8.15'
 }

@@ -4,7 +4,7 @@ Kurzübersicht über die Pipeline von TicTacTest. Stand: 22.09.2026.
 
 ## Überblick
 
-Die Pipeline besteht aus zwei GitHub-Actions-Workflows, einem eigenen
+Die Pipeline besteht aus mehreren GitHub-Actions-Workflows, einem eigenen
 Container-Image in der GitHub Container Registry (GHCR) und einer
 Coverage-Time-Series auf GitHub Pages.
 
@@ -27,6 +27,7 @@ coverage-history.csv auf Branch gh-pages  ->  GitHub Pages (Chart.js)
 | Image publizieren + versionieren | `.github/workflows/dockerimageupdate.yml` | baut das Image, taggt es (inkl. Semantic Version), lädt es nach GHCR und eröffnet die Freigabe-PR |
 | Projekt bauen | `.github/workflows/build.yml` | führt Build und Tests **im** Image aus, erzeugt den JaCoCo-Coverage-Report, pflegt auf `main` zusätzlich die Coverage-Historie |
 | Coverage-Historie + Visualisierung | Branch `gh-pages` (`coverage-history.csv`, `index.html`) | von `build.yml` gepflegt, von GitHub Pages ausgeliefert |
+| Applikations-Release | `.github/workflows/release.yml` | startet nur bei einem Tag `vX.Y.Z`: prüft den Tag, testet und baut **im** Image, veröffentlicht das JAR als GitHub Release (Details: `RELEASE.md`) |
 | Lokale Umgebung | `.devcontainer/devcontainer.json` | zieht dasselbe versionierte Image für VS Code / IntelliJ Dev Containers |
 
 Details zur Versionierung und zum Freigabeprozess: siehe
@@ -48,9 +49,9 @@ auf das (standardmässig private) Package.
 ## Workflow 1: Publish container image
 
 - **Auslöser:** Push auf `main`, wenn `.devcontainer/Dockerfile` geändert wurde; zusätzlich manuell über `workflow_dispatch`
-- **Job `publish`:** Login an `ghcr.io` mit `GITHUB_TOKEN` → Buildx einrichten → nächste Patch-Version anhand der vorhandenen `vX.Y.Z`-Git-Tags ermitteln → Image bauen und pushen → Git-Tag für die neue Version erstellen und pushen
+- **Job `publish`:** Login an `ghcr.io` mit `GITHUB_TOKEN` → Buildx einrichten → nächste Patch-Version anhand der vorhandenen `devcontainer-vX.Y.Z`-Git-Tags ermitteln → Image bauen und pushen → Git-Tag für die neue Version erstellen und pushen
 - **Tags:** `:latest` und `:<commit-sha>` (Debugging), sowie `:vX.Y.Z` (die eigentlich massgebliche Version)
-- **Job `open-release-pr`** (läuft nach `publish`): schliesst zuerst noch offene, ältere Freigabe-PRs automatisch (nur eine soll gleichzeitig offen sein), ersetzt dann den Image-Tag in `build.yml` und `devcontainer.json` durch die neue `:vX.Y.Z`-Version und eröffnet dafür automatisch einen Pull Request
+- **Job `open-release-pr`** (läuft nach `publish`): schliesst zuerst noch offene, ältere Freigabe-PRs automatisch (nur eine soll gleichzeitig offen sein), ersetzt dann den Image-Tag in `build.yml`, `mutationtesting.yml`, `release.yml` und `devcontainer.json` durch die neue `:vX.Y.Z`-Version und eröffnet dafür automatisch einen Pull Request
 - **`concurrency`:** verhindert, dass zwei Läufe gleichzeitig um `:latest` bzw. die nächste Versionsnummer konkurrieren
 
 Wichtig: Ein neues Image ist damit *veröffentlicht* (in der GHCR vorhanden),
@@ -177,3 +178,17 @@ bestätigt funktionierend seit dem Merge von Auftrag 2.5.
 5. ~~GitHub Pages musste manuell aktiviert werden.~~ **Erledigt und bestätigt** (2026-09-22) — siehe oben.
 6. ~~Kein grüner Actions-Lauf für den Coverage-Update-Schritt bestätigt.~~ **Bestätigt funktionierend**: erster echter Lauf hat `coverage-history.csv` korrekt mit einer realen Zeile befüllt.
 7. **`v1.0.0` (Versionierung) noch nicht gebootstrapped.** Braucht einen einmaligen manuellen `workflow_dispatch`-Lauf, siehe "Noch offen" oben und `docs/DevContainer-Versioning.md`.
+
+## Workflow: Release (`release.yml`)
+
+Eigenständiger Workflow für Applikations-Releases. Er läuft **nie** bei einem
+normalen Push auf `main`, sondern nur, wenn ein Tag `vMAJOR.MINOR.PATCH`
+gepusht wird. Drei Jobs, jeder davon ein Gate für den nächsten:
+
+1. **`verify`:** Der getaggte Commit liegt auf `main`, und `CHANGELOG.md` enthält einen Eintrag für diese Version.
+2. **`build`:** Tests und Build im gepinnten Image (`./gradlew build -PreleaseVersion=<Version>`), danach Upload des JARs als Artifact. Schlägt ein Test fehl, endet der Lauf hier.
+3. **`release`:** erstellt das GitHub Release mit dem JAR und den Release Notes aus dem Changelog.
+
+Die Versionsnummer stammt allein aus dem Tag. Die Git-Tags der Applikation
+(`vX.Y.Z`) und die des DevContainer-Images (`devcontainer-vX.Y.Z`) sind durch
+das Präfix getrennt. Der komplette Ablauf steht in `RELEASE.md`.

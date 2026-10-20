@@ -1,0 +1,14 @@
+# Changelog
+
+Alle relevanten Änderungen an TicTacTest. Format und Versionierung: siehe `RELEASE.md`.
+
+## 1.0.0 - 2026-10-20
+
+### Added
+- Erste veröffentlichte Version: TicTacToe als Konsolenspiel, als ausführbares JAR (`java -jar tictactest-1.0.0.jar`)
+- Zwei Spielertypen: `HumanPlayer` (Eingabe über die Konsole) und `GreedyPlayer`
+- Automatisierte Tests (JUnit, AssertJ, parametrisierte Tests) mit JaCoCo-Coverage-Report
+- Mutation Testing mit PIT
+- CI-Pipeline mit GitHub Actions in einem versionierten Dev-Container-Image (GHCR)
+- Zeitlicher Verlauf der Testabdeckung auf GitHub Pages
+- Release-Prozess: Release nur per Git-Tag, JAR als GitHub Release
