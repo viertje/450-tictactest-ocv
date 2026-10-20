@@ -28,7 +28,12 @@ jacoco {
 }
 
 test {
-	useJUnitPlatform()
+	// E2E tests (tagged "e2e") run in their own task below instead -- they simulate whole games
+	// through System.in/System.out and are noticeably slower than a plain unit test, so keeping
+	// them out of `test` is what keeps the everyday `./gradlew test` loop fast.
+	useJUnitPlatform {
+		excludeTags 'e2e'
+	}
 	finalizedBy jacocoTestReport
 }
 
@@ -40,6 +45,26 @@ jacocoTestReport {
 	}
 }
 
+// End-to-end tests: same source set and classpath as the unit tests, just filtered to the
+// "e2e" tag instead, so they get their own Gradle task ("./gradlew e2eTest") and their own CI
+// visibility without needing a whole separate source set.
+tasks.register('e2eTest', Test) {
+	description = 'Runs end-to-end tests that drive the whole game through simulated console I/O.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'e2e'
+	}
+	// Fail fast on the cheap unit tests before spending time on the slower E2E ones.
+	shouldRunAfter test
+}
+
+// Wired into `check` (and therefore `build`, which CI already runs) so E2E tests run
+// automatically on every push/PR -- no separate CI step needed, and a broken one turns the
+// build red exactly like a broken unit test would.
+check.dependsOn e2eTest
+
 // Mutation testing (PIT via the gradle-pitest-plugin). Where JaCoCo answers
 // "which lines ran", PIT answers "did the tests actually notice when the
 // logic broke" -- it edits the compiled bytecode (a "mutant", e.g. flips a
@@ -48,7 +73,10 @@ jacocoTestReport {
 pitest {
 	junit5PluginVersion = '1.2.3'
 	targetClasses = ['ch.bbw.m450.tictactoe.*']
-	targetTests = ['ch.bbw.m450.tictactoe.*']
+	// Named explicitly rather than a wildcard, so adding the (much slower) E2E suite under
+	// ch.bbw.m450.tictactoe.e2e doesn't silently drag it into every PIT run too. Comparing unit
+	// vs. E2E mutation coverage is a separate exercise, not done here.
+	targetTests = ['ch.bbw.m450.tictactoe.TicTacToeMainTest', 'ch.bbw.m450.tictactoe.players.GreedyPlayerTest']
 	threads = 4
 	outputFormats = ['HTML', 'XML']
 	timestampedReports = false
@@ -61,5 +89,7 @@ pitest {
 dependencies {
 	testImplementation 'org.assertj:assertj-core:3.27.7'
 	testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
+	// End-to-end console-I/O simulation for the "e2e" tests below (@StdIo / StdIn / StdOut).
+	testImplementation 'org.junit-pioneer:junit-pioneer:2.3.0'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

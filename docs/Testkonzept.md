@@ -9,9 +9,9 @@
 | Modul | M450 – Applikationen testen |
 | Autor | Olivier |
 | Reviewer / Auftraggeber | Dominik Berner (`bernedom`), Lehrperson |
-| Version Testkonzept | 0.2 (IST) |
-| Stand | 22.09.2026 |
-| Referenzstand Code | Branch `main`, Commit `ceed64e` |
+| Version Testkonzept | 0.3 (IST) |
+| Stand | 30.09.2026 |
+| Referenzstand Code | Branch `main`, Commit `89aa731` |
 
 **Kurzbeschreibung:** TicTacTest ist eine Konsolenanwendung, die ein Tic-Tac-Toe-Spiel
 zwischen zwei Spielern austrägt. Das Spielbrett ist ein flaches Array mit neun Feldern
@@ -53,7 +53,7 @@ mehrerer Klassen**.
 |---|---|---|
 | Unit-Test | `TicTacToeMain.isWin()`, `GreedyPlayer.play()` – Prüfung einzelner Methoden isoliert gegen vorbereitete Board-Konstellationen | Schnell, stabil, deckt die Kernlogik feingranular ab |
 | Integrationstest (Klassenebene) | `TicTacToeMain.play()` – spielt eine komplette Partie über `TicTacToeMain` **und** zwei `TicTacToePlayer`-Implementierungen | Deckt das Zusammenspiel von Spiellogik und Spielern ab, das ein Unit-Test allein nicht sieht |
-| Systemtest / End-to-End | **nicht vorhanden** | Die Anwendung läuft über `stdin`/`stdout`; ein End-to-End-Test wäre nur mit zusätzlicher Infrastruktur möglich |
+| Systemtest / End-to-End | `GameEndToEndTest` -- volle Spielabläufe, ungültige/böswillige Eingabe, DoS-Grenzfall, alles über simuliertes `stdin`/`stdout` (JUnit Pioneer `@StdIo`) | Siehe Abschnitt 9; braucht keine zusätzliche Infrastruktur, da die Simulation im selben JVM-Prozess läuft |
 | Manuelle Tests | **nicht dokumentiert** | Es existiert kein manuelles Testprotokoll |
 
 **Abgrenzung Unit- gegen Integrationstest:** Ein Unit-Test prüft eine einzelne Einheit
@@ -96,10 +96,10 @@ Die Auswahl folgt drei Kriterien:
 | `TicTacToeMain.isWin()` | ja, vollständig | alle 8 Gewinnlinien, beide Farben, Negativfälle |
 | `TicTacToeMain.play()` | ja | Sieg, Unentschieden, alle Fehlerpfade |
 | `TicTacToeMain.toString()` | ja, direkt | zwei Golden-Output-Tests (leeres Brett, teilweise belegtes Brett) prüfen den kompletten String inkl. ANSI-Farbcodes |
-| `TicTacToeMain.main()` | nein | reiner Einstiegspunkt, startet ein interaktives Spiel |
+| `TicTacToeMain.main()` | ja | E2E-04: Mensch gegen `GreedyPlayer` über den echten Einstiegspunkt |
 | `TicTacToePlayer.Stone.opponent()` | indirekt | wird in TF-04 verwendet |
 | `GreedyPlayer.play()` | ja, vollständig | Feldwahl, Farbunabhängigkeit, volles Brett |
-| `HumanPlayer.play()` | **nein** | liest über `Scanner` von `stdin` und ist ohne Refactoring nicht automatisiert testbar |
+| `HumanPlayer.play()` | ja | über JUnit Pioneer `@StdIo` (simuliert `System.in`); kein Refactoring nötig, siehe Abschnitt 9 |
 
 ### Abdeckung
 
@@ -124,10 +124,9 @@ fortgeschrieben und dort als Zeitreihe visualisiert (siehe Abschnitt 6). Aktuell
 
 ### Offene Risiken
 
-| Risiko | Auswirkung |
-|---|---|
-| `HumanPlayer` ist ungetestet | Eine nicht-numerische Eingabe löst eine `NumberFormatException` aus, die nirgends abgefangen wird; das Spiel stürzt ab |
-| Nur ein Sieg- und ein Unentschieden-Szenario für `play()` | Andere Spielverläufe (z. B. Sieg erst in der letzten Runde) sind nicht abgedeckt |
+Keine offen -- die beiden bisherigen Punkte (`HumanPlayer` ungetestet, nur ein Sieg-/Unentschieden-Szenario
+für `play()`) sind mit der E2E-Testsuite abgedeckt; siehe Abschnitt 9, inklusive eines dabei gefundenen und
+test-first behobenen Fehlers.
 
 ---
 
@@ -198,6 +197,10 @@ auf `gh-pages`) und bei Pull Requests auf `main` läuft. Schritte: Checkout, `gr
 ausführbar machen, `./gradlew build --no-daemon` (kompiliert **und führt die Tests aus**,
 inkl. JaCoCo-Report über `finalizedBy jacocoTestReport`), Upload des HTML-Coverage-Reports
 als Artifact.
+
+`./gradlew build` schliesst über `check.dependsOn e2eTest` automatisch auch die E2E-Tests
+(Abschnitt 9) mit ein -- `build.yml` musste dafür nicht angepasst werden, ein roter E2E-Test
+lässt den Workflow genauso fehlschlagen wie ein roter Unit-Test.
 
 Nur bei einem Push auf `main` laufen zusätzlich drei weitere Schritte: Der
 Zeilen-Abdeckungswert wird aus dem JaCoCo-XML-Report extrahiert, der Branch `gh-pages`
@@ -276,7 +279,8 @@ Alle vierzehn Methoden tragen über TZ-07 zur Regressionssicherung bei.
 |---|---|---|---|
 | Testfälle schreiben und erweitern | während der Entwicklung | Olivier | IntelliJ, JUnit |
 | Testsuite lokal ausführen | vor jedem Commit | Olivier | `./gradlew test` |
-| Tests und Coverage prüfen | bei jedem Push / PR | GitHub Actions | `./gradlew build` (inkl. JaCoCo) |
+| Tests und Coverage prüfen | bei jedem Push / PR | GitHub Actions | `./gradlew build` (inkl. JaCoCo, inkl. E2E via `check`) |
+| E2E-Tests separat ausführen | bei Bedarf, lokal | Olivier | `./gradlew e2eTest` |
 | Code- und Test-Review | vor dem Merge | `bernedom` | Pull Request auf GitHub |
 
 ### Aktueller Teststand
@@ -289,11 +293,125 @@ Alle vierzehn Methoden tragen über TZ-07 zur Regressionssicherung bei.
 | Testfälle | 35 |
 | Letzter lokaler Testlauf | 08.09.2026, `TicTacToeMainTest`: 25 Tests, 0 Fehler, 0 Errors |
 | Line Coverage (JaCoCo, CI) | 84.4 % (Stand 22.09.2026) |
+| E2E-Testklassen | 1 (`GameEndToEndTest`, Paket `e2e`, Tag `"e2e"`) |
+| E2E-Testfälle | 11 (siehe Abschnitt 9) |
 
 ### Offene Punkte
 
 Diese Punkte beschreiben Lücken im heutigen Zustand. Sie sind bewusst nicht als geplante
 Massnahmen formuliert, sondern als das, was aktuell fehlt:
 
-1. `HumanPlayer` ist nicht getestet; ungültige Eingaben sind nicht abgefangen.
-2. Für `play()` existieren nur zwei Spielverläufe (ein Sieg, ein Unentschieden).
+Keine -- die beiden bisherigen Punkte sind mit der E2E-Testsuite abgedeckt (Abschnitt 9).
+
+---
+
+## 9. End-to-End-Tests
+
+### Werkzeug und Ausführung
+
+Die E2E-Tests liegen in `GameEndToEndTest` (Paket `ch.bbw.m450.tictactoe.e2e`), sind mit
+`@Tag("e2e")` markiert und mit **JUnit Pioneer** (`org.junit-pioneer:junit-pioneer:2.3.0`)
+implementiert: `@StdIo({...})` simuliert `System.in` zeilenweise, ein injizierter `StdOut`-Parameter
+zeichnet alles auf, was das Programm über `System.out` ausgibt. Anders als die bisherigen
+Unit-/Integrationstests rufen diese Tests nicht nur `TicTacToeMain.play(...)` auf, sondern in einem
+Fall den echten Einstiegspunkt `TicTacToeMain.main(...)` -- also genau das, was beim Ausführen des
+Programms tatsächlich passiert.
+
+Sie laufen in einem eigenen Gradle-Task (`./gradlew e2eTest`), der dieselbe Test-Source-Set und
+denselben Classpath wie `test` verwendet, aber nach dem `"e2e"`-Tag statt nach Klassenname filtert
+(`test` schliesst diesen Tag umgekehrt aus, damit der alltägliche `./gradlew test`-Lauf schnell
+bleibt). Über `check.dependsOn e2eTest` ist der Task automatisch Teil von `./gradlew build` --
+und damit auch automatisch Teil der CI-Pipeline (Abschnitt 6), ohne dass `build.yml` selbst
+angepasst werden musste.
+
+### Testfälle
+
+| ID | Testfall | Erwartetes Verhalten | Tatsächliches Verhalten |
+|---|---|---|---|
+| E2E-01 | Voller Spielablauf: CROSS gewinnt die oberste Reihe | Rückgabe `CROSS`; Ausgabe enthält die Gewinnmeldung | **Fehler gefunden, behoben** (siehe unten) |
+| E2E-02 | Voller Spielablauf: CIRCLE gewinnt die mittlere Reihe | Rückgabe `CIRCLE`; Ausgabe enthält die Gewinnmeldung | **Fehler gefunden, behoben** (siehe unten) |
+| E2E-03 | Voller Spielablauf: Unentschieden über alle 9 Felder | Rückgabe `null`; Ausgabe enthält `"it's a draw!"` | **Fehler gefunden, behoben** (siehe unten) |
+| E2E-04 | Echter Einstiegspunkt `main()`: Mensch gegen `GreedyPlayer` | Prompt wird ausgegeben; Mensch gewinnt gegen den deterministischen `GreedyPlayer` | **Fehler gefunden, behoben** (siehe unten) |
+| E2E-05 | Ungültige Eingabe: nicht-numerischer Text (`"not-a-number"`) | Erneute Aufforderung statt Absturz, danach normale Fortsetzung | **Fehler gefunden, test-first behoben** (siehe unten) |
+| E2E-06 | Ungültige Eingabe: leere Zeile | Erneute Aufforderung statt Absturz | wie erwartet (nach Fix) |
+| E2E-07 | Ungültige Eingabe: Dezimalzahl (`"4.5"`) | Erneute Aufforderung statt Absturz | wie erwartet (nach Fix) |
+| E2E-08 | Ungültige Eingabe: nur Leerzeichen | Erneute Aufforderung statt Absturz | wie erwartet (nach Fix) |
+| E2E-09 | Ungültige Eingabe: Zahl grösser als `Integer.MAX_VALUE` | Erneute Aufforderung statt Absturz; kein stiller Überlauf | wie erwartet (nach Fix) |
+| E2E-10 | Böswillige Eingabe: Terminal-Escape-Sequenz als "Zug" | Erneute Aufforderung; die Sequenz wird nur als Text behandelt, nicht ausgeführt | wie erwartet |
+| E2E-11 | Denial of Service: eine 1'000'000 Zeichen lange Eingabezeile | Ablehnung innerhalb von 5 Sekunden, abgesichert mit `@Timeout` | wie erwartet |
+
+### Gefundener Fehler und Fix 1: nicht-numerische Eingabe (test-first)
+
+Beim Schreiben von E2E-05 zeigte sich: `HumanPlayer.play()` rief `Integer.parseInt(scanner.nextLine())`
+genau einmal auf und liess eine `NumberFormatException` bei nicht-numerischer Eingabe ungefangen bis
+nach ganz aussen durchschlagen -- ein einzelner Tippfehler beendete die gesamte Partie mit einem rohen
+Stacktrace statt einer verständlichen Fehlermeldung.
+
+**Vorgehen:** Zuerst wurde E2E-05 (`nonNumericTextIsRejectedAndRePrompted`) geschrieben und gegen den
+damaligen Stand von `HumanPlayer` ausgeführt -- der Test schlug erwartungsgemäss fehl (unbehandelte
+`NumberFormatException` statt einer erneuten Aufforderung). Erst danach wurde `HumanPlayer.play()`
+angepasst: `Integer.parseInt(...)` läuft jetzt in einer Schleife mit `try`/`catch`, die bei ungültiger
+Eingabe eine Fehlermeldung ausgibt und erneut nach einer Zahl fragt, statt das Spiel abzubrechen. Die
+bereits bestehende, separate Validierung in `TicTacToeMain.play()` (Feld ausserhalb des Bretts, Feld
+bereits belegt) ist davon nicht betroffen und bleibt unverändert -- das war eine bewusste
+Entscheidung, um den Fix eng auf das eine gefundene Problem zu beschränken.
+
+### Gefundener Fehler und Fix 2: mehrfache `Scanner`-Instanzen auf demselben `System.in`
+
+Beim Schreiben der Mehrrunden-Testfälle E2E-01 bis E2E-04 zeigte sich ein zweiter, unabhängiger
+Fehler: alle vier Tests schlugen mit `java.util.NoSuchElementException: No line found` fehl, obwohl
+die simulierte Eingabe (`@StdIo`) noch genügend Zeilen enthielt. Ursache war, dass
+`HumanPlayer.play()` bei **jedem** Aufruf ein neues `Scanner(System.in, ...)`-Objekt erzeugte.
+`Scanner` liest intern vorausschauend in einen eigenen Puffer und gibt beim Verwerfen des Objekts
+nicht gelesene, aber bereits aus dem Strom entnommene Daten nicht zurück.
+
+Ein erster Fix (`Scanner` als Instanzfeld von `HumanPlayer`, einmal pro Instanz statt einmal pro
+Aufruf erzeugt) behob den Fall einer einzelnen `HumanPlayer`-Instanz über mehrere Runden hinweg
+(bestätigt durch E2E-04, `main()` gegen `GreedyPlayer`, der danach grün wurde). E2E-01 bis E2E-03
+blieben jedoch rot: `TicTacToeMain.play(TicTacToePlayer, TicTacToePlayer)` erlaubt **zwei separate**
+`HumanPlayer`-Instanzen (zwei Personen an derselben Tastatur), und zwei unabhängige
+`Scanner`-Objekte über demselben `System.in` sind aus demselben Grund unsicher wie ein einzelner, neu
+erzeugter `Scanner` pro Aufruf: welche Instanz auch immer zuerst liest, puffert dabei intern Zeilen
+vor, die eigentlich für den nächsten Zug der anderen Instanz bestimmt waren.
+
+Dieser Fehler war nicht neu eingeführt, sondern bereits im ursprünglichen Code vorhanden -- er wurde
+nur nie sichtbar, weil vor den E2E-Tests kein Test `HumanPlayer.play()` mehrfach hintereinander über
+denselben `System.in`-Strom aufgerufen hat (weder mit einer Instanz über mehrere Runden noch mit zwei
+`HumanPlayer`-Instanzen im Wechsel).
+
+**Vorgehen:** Da die vier E2E-Tests bereits vor dem Fix geschrieben waren und rot fehlschlugen, diente
+ihr Fehlschlag selbst als Nachweis vor der Korrektur (funktional test-first, auch wenn die Tests nicht
+gezielt für diesen zweiten Fehler neu geschrieben wurden). Der endgültige Fix hält den `Scanner` als
+**prozessweit gemeinsam genutztes** Feld (`static`) statt als Instanzfeld: eine private
+`sharedScanner()`-Methode gibt einen gecachten `Scanner` zurück und erzeugt nur dann einen neuen,
+wenn sich die aktuelle `System.in`-Referenz seit dem letzten Aufruf geändert hat. Damit teilen sich
+alle `HumanPlayer`-Instanzen innerhalb eines Spiels (und damit innerhalb eines Tests, da `@StdIo`
+`System.in` für die Dauer eines Testmethodenaufrufs konstant hält) denselben `Scanner`, während ein
+Testwechsel -- bei dem `@StdIo` `System.in` auf einen neuen simulierten Strom umstellt -- automatisch
+einen frischen `Scanner` erzeugt. In einer echten Partie, in der `System.in` nie wechselt, verhält
+sich das exakt wie ein einfaches `static`-Feld: ein einziger `Scanner` für die gesamte Lebensdauer
+des Prozesses.
+
+### Denial of Service
+
+`Integer.parseInt` liest die Eingabezeile in einem linearen Durchlauf; selbst eine sehr lange Zeile
+(E2E-11: 1 Million Zeichen) wird dadurch innerhalb von Millisekunden abgelehnt. Der Test ist trotzdem
+mit `@Timeout(value = 5, unit = SECONDS)` abgesichert: Sollte eine künftige Änderung diesen Pfad
+langsamer machen, schlägt der Test kontrolliert fehl, statt die ganze CI-Pipeline unbegrenzt zu
+blockieren.
+
+Eine Eingabequelle, die dauerhaft keine Daten sendet (z. B. eine offene, aber stumme Verbindung),
+würde `HumanPlayer.play()` unbegrenzt blockieren -- das ist eine inhärente Eigenschaft von
+synchronem Konsolen-I/O in Java (`Scanner`/`System.in` kennen kein Lese-Timeout) und wird hier bewusst
+nicht behoben. Für eine interaktive Konsolenanwendung mit einem einzigen lokalen Benutzer wird dieses
+Risiko als akzeptabel eingestuft; eine vernetzte oder mehrbenutzerfähige Version müsste hierfür einen
+expliziten Lese-Timeout einführen.
+
+### Böswillige Eingabe: Einschätzung
+
+E2E-10 prüft eine Terminal-Escape-Sequenz als Eingabe. Sie nimmt denselben Codepfad wie jede andere
+nicht-numerische Eingabe (Abschnitt "Gefundener Fehler und Fix 1") und wird deshalb genauso abgelehnt
+und in der Fehlermeldung als Text zurückgespiegelt. Eine gezielte Bereinigung von Steuerzeichen wurde
+bewusst nicht ergänzt: `HumanPlayer` liest und schreibt ausschliesslich auf das eigene, lokale
+Terminal desselben Benutzers -- es gibt keine zweite Partei, die durch eine reflektierte
+Escape-Sequenz betroffen sein könnte.
