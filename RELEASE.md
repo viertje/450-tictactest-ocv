@@ -83,6 +83,10 @@ Vom Workflow im selben Dev-Container-Image wie die normale CI (Job `build`):
 `build/libs/tictactest-X.Y.Z.jar` mit `Main-Class` im Manifest. Lokal ohne
 Version: `./gradlew jar`.
 
+**Voraussetzung zum Starten: Java 25 oder neuer.** Das Projekt wird mit dem
+Java-25-Toolchain kompiliert (`gradle/gradle-daemon-jvm.properties`); auf einer
+älteren Java-Version startet das JAR mit `UnsupportedClassVersionError`.
+
 **Wo kann das JAR heruntergeladen werden?**
 Auf der Seite *Releases* des GitHub-Repositories, beim jeweiligen Release unter *Assets*.
 
@@ -105,7 +109,8 @@ git tag -d v1.0.0                   # Tag lokal entfernen
 ## Release testen
 
 Ein Release gilt erst als erfolgreich, wenn das veröffentlichte JAR funktioniert:
-JAR von der Release-Seite herunterladen und ohne Quellcode starten.
+JAR von der Release-Seite herunterladen und ohne Quellcode starten (mit
+installiertem Java 25 oder neuer).
 
 ```bash
 java -jar tictactest-1.0.0.jar
