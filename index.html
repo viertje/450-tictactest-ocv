@@ -31,12 +31,12 @@
 </head>
 <body>
   <h1>TicTacTest — Test Coverage History</h1>
-  <p class="sub">Line coverage of <code>main</code>, measured by JaCoCo on every push. Updated automatically by the "Build &amp; Test" workflow.</p>
+  <p class="sub">Branch coverage of <code>main</code> (unit + E2E tests, JaCoCo), one point per merge. Updated automatically by the "Build &amp; Test" workflow; the dashed line is the 90&nbsp;% gate.</p>
   <div id="chart-wrap"><canvas id="coverage-chart"></canvas></div>
   <div id="empty">No data yet — this fills in after the next push to <code>main</code>.</div>
 
   <script>
-    fetch("coverage-history.csv")
+    fetch("branch-coverage-history.csv")
       .then((r) => r.text())
       .then((text) => {
         const rows = text.trim().split("\n").slice(1).filter(Boolean);
@@ -47,25 +47,34 @@
         }
         const dates = [];
         const commits = [];
+        const labels = [];
         const coverage = [];
         for (const row of rows) {
-          const [date, commit, percent] = row.split(",");
+          const [date, commit, label, percent] = row.split(",");
           dates.push(date);
           commits.push(commit);
+          labels.push(label);
           coverage.push(parseFloat(percent));
         }
         new Chart(document.getElementById("coverage-chart"), {
           type: "line",
           data: {
-            labels: dates,
+            labels: labels,
             datasets: [{
-              label: "Line coverage (%)",
+              label: "Branch coverage (%)",
               data: coverage,
               borderColor: "#2f81f7",
               backgroundColor: "rgba(47, 129, 247, 0.15)",
               tension: 0.2,
               fill: true,
               pointRadius: 3,
+            }, {
+              label: "Gate (90 %)",
+              data: labels.map(() => 90),
+              borderColor: "#d1242f",
+              borderDash: [6, 4],
+              pointRadius: 0,
+              fill: false,
             }],
           },
           options: {
@@ -75,6 +84,7 @@
             plugins: {
               tooltip: {
                 callbacks: {
+                  title: (items) => items[0].label + " (" + dates[items[0].dataIndex] + ")",
                   afterLabel: (ctx) => "commit " + commits[ctx.dataIndex],
                 },
               },
