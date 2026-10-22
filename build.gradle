@@ -48,7 +48,7 @@ jacocoTestReport {
 	executionData.setFrom(allCoverageData)
 	// Must see the E2E data too, but without depending on e2eTest -- that would drag the slow
 	// E2E suite into every `./gradlew test`.
-	mustRunAfter e2eTest
+	mustRunAfter 'e2eTest'    // by name: the task is registered further down in this script
 	reports {
 		html.required = true
 		xml.required = true
