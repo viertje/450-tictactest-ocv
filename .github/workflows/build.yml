@@ -49,13 +49,14 @@ jobs:
           path: build/reports/jacoco/test/html/
           if-no-files-found: error
 
-      - name: Extract line coverage percentage
+      - name: Extract branch coverage percentage
         # Only main's coverage gets tracked over time -- a feature branch
         # would pollute the history with numbers nobody wants to compare.
+        # BRANCH is the same metric the 90 % gate in build.gradle enforces.
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         id: coverage
         run: |
-          COUNTER=$(grep -o '<counter type="LINE"[^>]*/>' build/reports/jacoco/test/jacocoTestReport.xml | tail -1)
+          COUNTER=$(grep -o '<counter type="BRANCH"[^>]*/>' build/reports/jacoco/test/jacocoTestReport.xml | tail -1)
           MISSED=$(echo "$COUNTER" | sed -E 's/.*missed="([0-9]+)".*/\1/')
           COVERED=$(echo "$COUNTER" | sed -E 's/.*covered="([0-9]+)".*/\1/')
           PERCENT=$(awk -v c="$COVERED" -v m="$MISSED" 'BEGIN { printf "%.1f", (c / (c + m)) * 100 }')
@@ -70,11 +71,17 @@ jobs:
 
       - name: Append coverage to history
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
-          echo "$(date -u +%Y-%m-%d),${GITHUB_SHA::7},${{ steps.coverage.outputs.percent }}" >> gh-pages-branch/coverage-history.csv
+          # x-axis label of the chart: the PR number from a merge/squash commit message
+          # ("Merge pull request #12 ..."), otherwise the short commit SHA.
+          LABEL=$(printf '%s' "$COMMIT_MESSAGE" | head -n 1 | grep -oE '#[0-9]+' | head -n 1 || true)
+          LABEL=${LABEL:-${GITHUB_SHA::7}}
+          echo "$(date -u +%Y-%m-%d),${GITHUB_SHA::7},${LABEL},${{ steps.coverage.outputs.percent }}" >> gh-pages-branch/branch-coverage-history.csv
           cd gh-pages-branch
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add coverage-history.csv
+          git add branch-coverage-history.csv
           git commit -m "Update coverage history: ${{ steps.coverage.outputs.percent }}% (${GITHUB_SHA::7})"
           git push
