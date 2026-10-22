@@ -37,8 +37,18 @@ test {
 	finalizedBy jacocoTestReport
 }
 
+// Coverage data of BOTH test tasks (unit + E2E). JaCoCo's default only reads the `test` task,
+// which would leave everything only the E2E tests exercise (e.g. HumanPlayer's input
+// validation) uncovered in the report and in the gate below. Picking up "whatever .exec files
+// exist" keeps `./gradlew test` fast (unit data only) while `./gradlew build` sees both.
+def allCoverageData = fileTree(layout.buildDirectory).include('jacoco/*.exec')
+
 jacocoTestReport {
 	dependsOn test
+	executionData.setFrom(allCoverageData)
+	// Must see the E2E data too, but without depending on e2eTest -- that would drag the slow
+	// E2E suite into every `./gradlew test`.
+	mustRunAfter 'e2eTest'    // by name: the task is registered further down in this script
 	reports {
 		html.required = true
 		xml.required = true
@@ -64,6 +74,24 @@ tasks.register('e2eTest', Test) {
 // automatically on every push/PR -- no separate CI step needed, and a broken one turns the
 // build red exactly like a broken unit test would.
 check.dependsOn e2eTest
+
+// Coverage gate: the build fails if branch coverage (unit + E2E tests together) drops below
+// 90 %. Part of `check`, so CI fails on it, and with the required `Build & Test` status check
+// on main it also blocks the PR merge.
+jacocoTestCoverageVerification {
+	dependsOn test, e2eTest
+	executionData.setFrom(allCoverageData)
+	violationRules {
+		rule {
+			limit {
+				counter = 'BRANCH'
+				value = 'COVEREDRATIO'
+				minimum = 0.90
+			}
+		}
+	}
+}
+check.dependsOn jacocoTestCoverageVerification
 
 // Mutation testing (PIT via the gradle-pitest-plugin). Where JaCoCo answers
 // "which lines ran", PIT answers "did the tests actually notice when the
