@@ -10,6 +10,9 @@ import ch.bbw.m450.tictactoe.TicTacToePlayer;
 /**
  * Simple human-player taking input from stdin.
  */
+// The console IS this program's user interface (and what the E2E tests assert on), not
+// diagnostic logging. A logger would be the wrong tool, so S106 is suppressed on purpose.
+@SuppressWarnings("java:S106")
 public class HumanPlayer implements TicTacToePlayer {
 
 	// Shared across ALL HumanPlayer instances (not a per-instance field), keyed by the current
@@ -43,7 +46,7 @@ public class HumanPlayer implements TicTacToePlayer {
 			var line = sharedScanner().nextLine().strip();
 			try {
 				return Integer.parseInt(line);
-			} catch (NumberFormatException e) {
+			} catch (NumberFormatException _) {
 				// Re-prompt instead of letting a bad keystroke crash the whole game. Positions
 				// that parse fine but are out of range or already occupied are a different,
 				// deliberate concern -- TicTacToeMain.play() already validates and rejects those.

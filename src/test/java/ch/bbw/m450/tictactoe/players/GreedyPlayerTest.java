@@ -50,9 +50,11 @@ class GreedyPlayerTest {
 
 	@Test
 	void throwsWhenTheBoardIsFull() {
-		assertThatThrownBy(() -> player.play(boardFrom("XOX",
+		var fullBoard = boardFrom("XOX",
 				"OXO",
-				"OXO"), Stone.CROSS))
+				"OXO");
+
+		assertThatThrownBy(() -> player.play(fullBoard, Stone.CROSS))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessage("cannot play at all");
 	}
