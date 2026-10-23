@@ -11,6 +11,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Stream;
 
+import org.assertj.core.api.Condition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -56,16 +57,21 @@ class TicTacToeMainTest {
 	// Helpers
 	// ------------------------------------------------------------------
 
+	/** AssertJ condition: "this board is won by {@code color}". Gives a readable failure message. */
+	private static Condition<Stone[]> winFor(Stone color) {
+		return new Condition<>(board -> TicTacToeMain.isWin(board, color), "a win for %s", color);
+	}
+
 	private void assertWins(Stone[] board, Stone color) {
-		assertThat(TicTacToeMain.isWin(board, color))
-				.as("%s should win on this board:%n%s", color, TicTacToeMain.toString(board))
-				.isTrue();
+		assertThat(board)
+				.as("the board:%n%s", TicTacToeMain.toString(board))
+				.has(winFor(color));
 	}
 
 	private void assertDoesNotWin(Stone[] board, Stone color) {
-		assertThat(TicTacToeMain.isWin(board, color))
-				.as("%s should not win on this board:%n%s", color, TicTacToeMain.toString(board))
-				.isFalse();
+		assertThat(board)
+				.as("the board:%n%s", TicTacToeMain.toString(board))
+				.doesNotHave(winFor(color));
 	}
 
 	/**
