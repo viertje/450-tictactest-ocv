@@ -1,14 +1,20 @@
 package ch.bbw.m450.tictactoe.e2e;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Named.named;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junitpioneer.jupiter.StdIo;
 import org.junitpioneer.jupiter.StdOut;
 
@@ -108,56 +114,26 @@ class GameEndToEndTest {
 				.contains("where to to put the next");
 	}
 
-	@Test
-	@StdIo({ "", "4" })
-	void anEmptyLineIsRejectedAndRePrompted() {
-		var position = new HumanPlayer().play(new Stone[TicTacToeMain.BOARD_SIZE], Stone.CROSS);
-
-		assertThat(position).isEqualTo(4);
+	static Stream<Arguments> invalidLines() {
+		return Stream.of(
+				arguments(named("an empty line", "")),
+				arguments(named("a decimal number", "4.5")),
+				arguments(named("only whitespace", "   ")),
+				// too big for an int: still just text to Integer.parseInt, same NumberFormatException,
+				// so it takes the same re-prompt path instead of overflowing silently
+				arguments(named("a number too large for an int", "99999999999999999999999999")),
+				// malicious variant: a terminal escape sequence typed as the "move". It is rejected
+				// like any other text; HumanPlayer only echoes into its own user's terminal, so
+				// there is nobody else this could affect and no sanitizing is needed
+				arguments(named("a terminal escape sequence", "\u001B[31mHACKED\u001B[0m")));
 	}
 
-	@Test
-	@StdIo({ "4.5", "4" })
-	void aDecimalNumberIsRejectedAndRePrompted() {
-		var position = new HumanPlayer().play(new Stone[TicTacToeMain.BOARD_SIZE], Stone.CROSS);
+	@ParameterizedTest(name = "{0} is rejected and the player is asked again")
+	@MethodSource("invalidLines")
+	void invalidInputIsRejectedAndRePrompted(String invalidLine) {
+		var input = invalidLine + System.lineSeparator() + "4" + System.lineSeparator();
 
-		assertThat(position).isEqualTo(4);
-	}
-
-	@Test
-	@StdIo({ "   ", "4" })
-	void whitespaceOnlyInputIsRejectedAndRePrompted() {
-		var position = new HumanPlayer().play(new Stone[TicTacToeMain.BOARD_SIZE], Stone.CROSS);
-
-		assertThat(position).isEqualTo(4);
-	}
-
-	/**
-	 * A number too large for an {@code int} is still just text as far as {@code Integer.parseInt}
-	 * is concerned -- it throws the same {@code NumberFormatException} as any other unparsable
-	 * input, so it takes the same re-prompt path rather than overflowing silently.
-	 */
-	@Test
-	@StdIo({ "99999999999999999999999999", "4" })
-	void aNumberTooLargeToFitInAnIntIsRejectedAndRePrompted() {
-		var position = new HumanPlayer().play(new Stone[TicTacToeMain.BOARD_SIZE], Stone.CROSS);
-
-		assertThat(position).isEqualTo(4);
-	}
-
-	/**
-	 * A malicious-input variant: an attempt to inject a terminal escape sequence through the
-	 * "move" prompt. It's rejected the same way as any other non-numeric text -- and since
-	 * HumanPlayer only ever reads its own terminal's input back to itself (there's no other user
-	 * or remote party this could affect), reflecting it in the "not a valid number" message is
-	 * accepted here rather than treated as something that needs sanitizing.
-	 */
-	@Test
-	@StdIo({ "\u001B[31mHACKED\u001B[0m", "4" })
-	void aTerminalEscapeSequenceInTheInputIsRejectedAndRePrompted() {
-		var position = new HumanPlayer().play(new Stone[TicTacToeMain.BOARD_SIZE], Stone.CROSS);
-
-		assertThat(position).isEqualTo(4);
+		assertThat(playOneMoveReading(input)).isEqualTo(4);
 	}
 
 	// ------------------------------------------------------------------
@@ -178,12 +154,22 @@ class GameEndToEndTest {
 	@Test
 	@Timeout(value = 5, unit = TimeUnit.SECONDS)
 	void anExtremelyLongSingleLineIsRejectedQuicklyInsteadOfHanging() {
-		var maliciousLine = "9".repeat(1_000_000) + System.lineSeparator() + "4" + System.lineSeparator();
+		var maliciousLine = "9".repeat(1_000_000);
+
+		assertThat(playOneMoveReading(maliciousLine + System.lineSeparator() + "4" + System.lineSeparator()))
+				.isEqualTo(4);
+	}
+
+	/**
+	 * Lets a fresh {@code HumanPlayer} take one move from the given raw input, swapping
+	 * {@code System.in} by hand (see the DoS test above for why not {@code @StdIo}) and
+	 * restoring it afterwards either way.
+	 */
+	private static int playOneMoveReading(String input) {
 		var originalIn = System.in;
-		System.setIn(new ByteArrayInputStream(maliciousLine.getBytes(StandardCharsets.UTF_8)));
+		System.setIn(new ByteArrayInputStream(input.getBytes(StandardCharsets.UTF_8)));
 		try {
-			var position = new HumanPlayer().play(new Stone[TicTacToeMain.BOARD_SIZE], Stone.CROSS);
-			assertThat(position).isEqualTo(4);
+			return new HumanPlayer().play(new Stone[TicTacToeMain.BOARD_SIZE], Stone.CROSS);
 		} finally {
 			System.setIn(originalIn);
 		}

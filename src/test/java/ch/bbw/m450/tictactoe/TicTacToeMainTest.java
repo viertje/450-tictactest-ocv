@@ -213,9 +213,12 @@ class TicTacToeMainTest {
 	 */
 	@Test
 	void emptyBoardShowsEveryFieldIndex() {
-		var expected = "\033[37m0\033[0m  \033[37m1\033[0m  \033[37m2\033[0m  \n"
-				+ "\033[37m3\033[0m  \033[37m4\033[0m  \033[37m5\033[0m  \n"
-				+ "\033[37m6\033[0m  \033[37m7\033[0m  \033[37m8\033[0m  \n";
+		// (a trailing " \s" keeps the two spaces that toString() appends after each field)
+		var expected = """
+				\033[37m0\033[0m  \033[37m1\033[0m  \033[37m2\033[0m \s
+				\033[37m3\033[0m  \033[37m4\033[0m  \033[37m5\033[0m \s
+				\033[37m6\033[0m  \033[37m7\033[0m  \033[37m8\033[0m \s
+				""";
 
 		assertThat(TicTacToeMain.toString(emptyBoard)).isEqualTo(expected);
 	}
@@ -225,9 +228,11 @@ class TicTacToeMainTest {
 		var board = boardFrom("X..",
 				"..O",
 				"...");
-		var expected = "\033[1mX\033[0m  \033[37m1\033[0m  \033[37m2\033[0m  \n"
-				+ "\033[37m3\033[0m  \033[37m4\033[0m  \033[1mO\033[0m  \n"
-				+ "\033[37m6\033[0m  \033[37m7\033[0m  \033[37m8\033[0m  \n";
+		var expected = """
+				\033[1mX\033[0m  \033[37m1\033[0m  \033[37m2\033[0m \s
+				\033[37m3\033[0m  \033[37m4\033[0m  \033[1mO\033[0m \s
+				\033[37m6\033[0m  \033[37m7\033[0m  \033[37m8\033[0m \s
+				""";
 
 		assertThat(TicTacToeMain.toString(board)).isEqualTo(expected);
 	}
@@ -250,8 +255,10 @@ class TicTacToeMainTest {
 	@ParameterizedTest(name = "position {0} is outside the board")
 	@ValueSource(ints = {-1, TicTacToeMain.BOARD_SIZE, Integer.MIN_VALUE, Integer.MAX_VALUE})
 	void playingOutsideTheBoardIsRejected(int position) {
+		var scriptedX = new ScriptedPlayer(position);
+
 		var output = captureStdOut(() ->
-				assertThatThrownBy(() -> TicTacToeMain.play(new ScriptedPlayer(position), oPlayer))
+				assertThatThrownBy(() -> TicTacToeMain.play(scriptedX, oPlayer))
 						.isInstanceOf(IllegalStateException.class)
 						.hasMessageContaining("cannot play to position " + position));
 
@@ -262,8 +269,11 @@ class TicTacToeMainTest {
 
 	@Test
 	void playingToAnOccupiedFieldIsRejected() {
+		var scriptedX = new ScriptedPlayer(0);
+		var scriptedO = new ScriptedPlayer(0);
+
 		var output = captureStdOut(() ->
-				assertThatThrownBy(() -> TicTacToeMain.play(new ScriptedPlayer(0), new ScriptedPlayer(0)))
+				assertThatThrownBy(() -> TicTacToeMain.play(scriptedX, scriptedO))
 						.isInstanceOf(IllegalStateException.class)
 						.hasMessageContaining("cannot play to position 0"));
 

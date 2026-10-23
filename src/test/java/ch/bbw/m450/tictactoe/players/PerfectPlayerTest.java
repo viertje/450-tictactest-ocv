@@ -70,7 +70,7 @@ class PerfectPlayerTest {
 	@Test
 	void playsTheFirstFieldWhenAllMovesAreEquallyGood() {
 		// every opening move is a draw with perfect play, so the tie-break decides: first field
-		assertThat(player.play(emptyBoard(), Stone.CROSS)).isEqualTo(0);
+		assertThat(player.play(emptyBoard(), Stone.CROSS)).isZero();
 	}
 
 	@Test
@@ -85,9 +85,11 @@ class PerfectPlayerTest {
 
 	@Test
 	void throwsWhenTheBoardIsFull() {
-		assertThatThrownBy(() -> player.play(boardFrom("XOX",
+		var fullBoard = boardFrom("XOX",
 				"OXO",
-				"OXO"), Stone.CROSS))
+				"OXO");
+
+		assertThatThrownBy(() -> player.play(fullBoard, Stone.CROSS))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessage("cannot play at all");
 	}

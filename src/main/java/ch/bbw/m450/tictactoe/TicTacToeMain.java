@@ -9,10 +9,14 @@ import ch.bbw.m450.tictactoe.players.HumanPlayer;
 /**
  * A small tic-tac-toe board. Initially with a human and a primitive but valid computer player.
  */
+// The console IS this program's user interface (and what the E2E tests assert on), not
+// diagnostic logging. A logger would be the wrong tool, so S106 is suppressed on purpose.
+@SuppressWarnings("java:S106")
 public class TicTacToeMain {
 
 	public static final int BOARD_SIZE = 9;
 
+	@SuppressWarnings("java:S1172") // required entry-point signature; args intentionally unused
 	public static void main(String[] args) {
 		play(new HumanPlayer(), new GreedyPlayer());
 	}
