@@ -192,3 +192,16 @@ gepusht wird. Drei Jobs, jeder davon ein Gate für den nächsten:
 Die Versionsnummer stammt allein aus dem Tag. Die Git-Tags der Applikation
 (`vX.Y.Z`) und die des DevContainer-Images (`devcontainer-vX.Y.Z`) sind durch
 das Präfix getrennt. Der komplette Ablauf steht in `RELEASE.md`.
+
+## Workflow: Mutation Testing (`mutationtesting.yml`)
+
+Läuft bei jedem Push und jedem Pull Request auf `main`, parallel zu `build.yml`
+(also ohne dessen schnelles Feedback zu verzögern). PIT verändert den Code
+automatisch in kleinen Schritten ("Mutanten") und prüft, ob mindestens ein Test
+fehlschlägt. Der Lauf scheitert, wenn weniger als **90 %** der Mutanten erkannt
+werden (`mutationThreshold` in `build.gradle`). Der Report liegt immer als
+Artifact `pitest-report` am Lauf.
+
+Basiswert (23.10.2026): 92 % Mutation Coverage, 100 % Test Strength. Die sechs
+überlebenden Mutanten liegen alle in `HumanPlayer`, den nur die E2E-Tests
+ausführen. Diese gehören bewusst nicht zum PIT-Lauf.
