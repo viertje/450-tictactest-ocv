@@ -128,12 +128,19 @@ class GameEndToEndTest {
 				arguments(named("a terminal escape sequence", "\u001B[31mHACKED\u001B[0m")));
 	}
 
+	/**
+	 * {@code @StdIo} without values only captures stdout here: its simulated input lines are
+	 * compile-time constants and cannot come from a parameter, so the input is fed in by hand
+	 * (see {@code playOneMoveReading}).
+	 */
 	@ParameterizedTest(name = "{0} is rejected and the player is asked again")
 	@MethodSource("invalidLines")
-	void invalidInputIsRejectedAndRePrompted(String invalidLine) {
+	@StdIo
+	void invalidInputIsRejectedAndRePrompted(String invalidLine, StdOut out) {
 		var input = invalidLine + System.lineSeparator() + "4" + System.lineSeparator();
 
 		assertThat(playOneMoveReading(input)).isEqualTo(4);
+		assertThat(out.capturedString()).contains("is not a valid number");
 	}
 
 	// ------------------------------------------------------------------
@@ -152,12 +159,28 @@ class GameEndToEndTest {
 	 * quietly stalling the whole CI run.
 	 */
 	@Test
+	@StdIo
 	@Timeout(value = 5, unit = TimeUnit.SECONDS)
-	void anExtremelyLongSingleLineIsRejectedQuicklyInsteadOfHanging() {
+	void anExtremelyLongSingleLineIsRejectedQuicklyInsteadOfHanging(StdOut out) {
 		var maliciousLine = "9".repeat(1_000_000);
 
 		assertThat(playOneMoveReading(maliciousLine + System.lineSeparator() + "4" + System.lineSeparator()))
 				.isEqualTo(4);
+		assertThat(out.capturedString()).contains("is not a valid number");
+	}
+
+	/**
+	 * The player re-prompts for every invalid line and has no upper limit on attempts, so a long
+	 * run of garbage must not stall the game either: twenty thousand bad lines, then one valid move.
+	 */
+	@Test
+	@StdIo
+	@Timeout(value = 5, unit = TimeUnit.SECONDS)
+	void aLongRunOfInvalidLinesIsProcessedQuicklyInsteadOfHanging(StdOut out) {
+		var garbage = ("x" + System.lineSeparator()).repeat(20_000);
+
+		assertThat(playOneMoveReading(garbage + "4" + System.lineSeparator())).isEqualTo(4);
+		assertThat(out.capturedString()).contains("'x' is not a valid number");
 	}
 
 	/**

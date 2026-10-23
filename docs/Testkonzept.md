@@ -60,7 +60,7 @@ Die Zahlen sind aus dem Quellcode gezählt (Stand 23.10.2026).
 |---|---|---|---|
 | Unit | 43 | `TicTacToeMainTest`, `GreedyPlayerTest`, `PerfectPlayerTest` | einzelne Klassen mit vorbereiteten Brettern. `TicTacToeMain.play()` mit `ScriptedPlayer` (Stub) zählt als Unit-Test, weil die Mitspieler ersetzt sind. |
 | Integration | 4 | `TicTacToeMainTest`, `PerfectPlayerTest` | `play()` mit **echten** Spielern: zwei `GreedyPlayer`, zwei `PerfectPlayer` (Unentschieden), `PerfectPlayer` gegen `GreedyPlayer` aus beiden Positionen |
-| End-to-End | 11 (7 Methoden) | `GameEndToEndTest` | ganze Partien und Fehleingaben über simuliertes `stdin`/`stdout` (JUnit Pioneer `@StdIo`), einmal über den echten Einstiegspunkt `main()` |
+| End-to-End | 12 (8 Methoden) | `GameEndToEndTest` | ganze Partien und Fehleingaben über simuliertes `stdin`/`stdout` (JUnit Pioneer `@StdIo`), einmal über den echten Einstiegspunkt `main()` |
 | Statische Architekturprüfung | 2 | `ArchitectureTest` | ArchUnit prüft den kompilierten Code, ohne ihn auszuführen (TZ-11) |
 | Manuelle Tests | nicht dokumentiert | – | Es existiert kein manuelles Testprotokoll. |
 
@@ -148,7 +148,7 @@ galt als ungetestet, weil der Report die E2E-Tests nicht einbezog.
 | TZ-06, TZ-08 | vollständig |
 | TZ-07 | vollständig – die Suite läuft bei jedem Push und Pull Request in der CI |
 | TZ-09 | stark – exhaustiver Nachweis "verliert nie" für beide Farben |
-| TZ-10 | gut – sieben Fehleingabe-Varianten |
+| TZ-10 | gut – acht Fehleingabe-Varianten, davon zwei mit Timeout |
 | TZ-11 | vollständig für die zwei Regeln |
 
 ---
@@ -237,7 +237,7 @@ fehlschlagen.
 ### Übersicht
 
 Die Unit-, Integrations- und Architekturtests bestehen aus **24 Testmethoden** mit
-**49 Testfällen**; dazu kommen 7 E2E-Methoden mit 11 Fällen (Abschnitt 9).
+**49 Testfällen**; dazu kommen 8 E2E-Methoden mit 12 Fällen (Abschnitt 9).
 
 | ID | Testmethode | Klasse | Zielbezug | Fälle |
 |---|---|---|---|---|
@@ -318,8 +318,8 @@ Alle Methoden tragen über TZ-07 zur Regressionssicherung bei.
 |---|---|
 | Testklassen | 5 (`TicTacToeMainTest`, `GreedyPlayerTest`, `PerfectPlayerTest`, `ArchitectureTest`, `GameEndToEndTest`) |
 | Hilfsklassen im Testcode | 2 (`TestBoards`, `ScriptedPlayer`) |
-| Testmethoden | 31 (24 Unit/Integration/Architektur, 7 E2E) |
-| Testfälle | 60 (49 und 11) |
+| Testmethoden | 32 (24 Unit/Integration/Architektur, 8 E2E) |
+| Testfälle | 61 (49 und 12) |
 | Branch Coverage | Gate 90 %; aktueller Wert im Chart (GitHub Pages) |
 | Mutation Coverage / Test Strength | 92 % / 100 % (23.10.2026) |
 
@@ -335,7 +335,7 @@ Lücken im heutigen Zustand, bewusst nicht als geplante Massnahmen formuliert:
 3. **`PerfectPlayer` bevorzugt keine schnelleren Siege.** Alle gewinnenden Züge zählen gleich, der erste gewinnt. Das Ergebnis bleibt optimal, der Sieg kommt nur nicht immer am schnellsten.
 4. **`PerfectPlayer` ist im Spiel nicht wählbar:** `main()` spielt Mensch gegen `GreedyPlayer`. Der Originalcode wurde bewusst nicht erweitert.
 5. **Kein zweites Augenpaar** bei den späteren Pull Requests (Abschnitt 5).
-6. **`HumanPlayer` blockiert unbegrenzt**, wenn nichts mehr eingegeben wird (Java-`Scanner` kennt kein Lese-Timeout). Für eine lokale Einbenutzer-Konsolenanwendung akzeptiert.
+6. **`HumanPlayer` und Eingabeende:** Ohne weitere Eingabe blockiert er unbegrenzt (Java-`Scanner` kennt kein Lese-Timeout); bei geschlossenem `stdin` bricht `nextLine()` mit `NoSuchElementException` ab (nicht getestet). Für eine lokale Einbenutzer-Konsolenanwendung akzeptiert.
 
 ---
 
@@ -349,17 +349,23 @@ Ausgabe auf. Sie laufen im eigenen Gradle-Task `./gradlew e2eTest`, damit der al
 `./gradlew test` schnell bleibt, und sind über `check.dependsOn e2eTest` trotzdem Teil von
 `./gradlew build` und damit der CI.
 
+Die Eingabezeilen von `@StdIo({...})` sind Konstanten und lassen sich nicht aus einem Parameter
+füllen. Die parametrisierten und die DoS-Tests setzen `System.in` deshalb von Hand
+(`playOneMoveReading`) und verwenden `@StdIo` ohne Werte nur, um die Ausgabe über `StdOut` zu
+erfassen. Die DoS-Tests tragen ein `@Timeout` von 5 Sekunden.
+
 ### Testfälle
 
-| ID | Testfall | Erwartetes Verhalten |
-|---|---|---|
-| E2E-01 | Voller Spielablauf: CROSS gewinnt die oberste Reihe | Rückgabe `CROSS`; Ausgabe enthält die Gewinnmeldung |
-| E2E-02 | Voller Spielablauf: CIRCLE gewinnt die mittlere Reihe | Rückgabe `CIRCLE`; Ausgabe enthält die Gewinnmeldung |
-| E2E-03 | Voller Spielablauf: Unentschieden über alle 9 Felder | Rückgabe `null`; Ausgabe `it's a draw!` |
-| E2E-04 | Echter Einstiegspunkt `main()`: Mensch gegen `GreedyPlayer` | Prompt wird ausgegeben, der Mensch gewinnt |
-| E2E-05 | Nicht-numerischer Text | Fehlermeldung und erneute Aufforderung statt Absturz |
-| E2E-06 | Parametrisiert, fünf Varianten: leere Zeile, Dezimalzahl, nur Leerzeichen, Zahl grösser als `Integer.MAX_VALUE`, Terminal-Escape-Sequenz | erneute Aufforderung; die Sequenz wird nur als Text behandelt, nicht ausgeführt |
-| E2E-07 | Eine Eingabezeile mit 1'000'000 Zeichen | Ablehnung innerhalb von 5 Sekunden (`@Timeout`) |
+| ID | Testfall | Erwartetes Verhalten | Tatsächliches Verhalten |
+|---|---|---|---|
+| E2E-01 | Voller Spielablauf: CROSS gewinnt die oberste Reihe | Rückgabe `CROSS`; Ausgabe enthält die Gewinnmeldung | Fehler gefunden (Fehler 2, verlorene Eingaben), behoben |
+| E2E-02 | Voller Spielablauf: CIRCLE gewinnt die mittlere Reihe | Rückgabe `CIRCLE`; Ausgabe enthält die Gewinnmeldung | Fehler gefunden (Fehler 2), behoben |
+| E2E-03 | Voller Spielablauf: Unentschieden über alle 9 Felder | Rückgabe `null`; Ausgabe `it's a draw!` | Fehler gefunden (Fehler 2), behoben |
+| E2E-04 | Echter Einstiegspunkt `main()`: Mensch gegen `GreedyPlayer` | Prompt wird ausgegeben, der Mensch gewinnt | Fehler gefunden (Fehler 2), behoben |
+| E2E-05 | Nicht-numerischer Text | Fehlermeldung und erneute Aufforderung statt Absturz | Fehler gefunden (Fehler 1, Absturz mit `NumberFormatException`), test-first behoben |
+| E2E-06 | Parametrisiert, fünf Varianten: leere Zeile, Dezimalzahl, nur Leerzeichen, Zahl grösser als `Integer.MAX_VALUE`, Terminal-Escape-Sequenz | erneute Aufforderung; die Sequenz wird nur als Text behandelt, nicht ausgeführt | wie erwartet (nach Fix 1) |
+| E2E-07 | DoS: eine Eingabezeile mit 1'000'000 Zeichen | Ablehnung innerhalb von 5 Sekunden (`@Timeout`) | wie erwartet |
+| E2E-08 | DoS: 20'000 ungültige Zeilen hintereinander, dann ein gültiger Zug | Verarbeitung innerhalb von 5 Sekunden (`@Timeout`) | wie erwartet |
 
 ### Gefundene Fehler
 
@@ -369,7 +375,9 @@ ursprünglichen Code bereits vorhanden und wurden erst durch diese Tests sichtba
 1. **Absturz bei Fehleingabe.** `Integer.parseInt` warf bei nicht-numerischem Text eine
    unbehandelte `NumberFormatException`, ein Tippfehler beendete die ganze Partie. E2E-05 wurde
    zuerst geschrieben und schlug erwartungsgemäss fehl (test-first); danach wurde `play()` so
-   angepasst, dass es in einer Schleife erneut fragt.
+   angepasst, dass es in einer Schleife erneut fragt. Test und Korrektur liegen im selben Commit
+   (`2dd6934`); der Fehlschlag vor der Korrektur ist deshalb nur im Arbeitsablauf belegt, nicht
+   in der Git-Historie.
 2. **Verlorene Eingaben durch mehrere `Scanner`.** Ein `Scanner` liest in einen eigenen Puffer
    voraus; mehrere Instanzen über demselben `System.in` verschlucken sich gegenseitig Zeilen. Alle
    `HumanPlayer` teilen sich jetzt einen gemeinsamen `Scanner`, der neu erzeugt wird, wenn sich
