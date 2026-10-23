@@ -49,6 +49,16 @@ jobs:
           path: build/reports/jacoco/test/html/
           if-no-files-found: error
 
+      - name: Upload test report
+        # Gradle's HTML test report (unit, E2E and architecture tests). Also for failed
+        # runs: that is exactly when you want to read it.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/
+          if-no-files-found: warn
+
       - name: Extract branch coverage percentage
         # Only main's coverage gets tracked over time -- a feature branch
         # would pollute the history with numbers nobody wants to compare.
