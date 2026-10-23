@@ -222,7 +222,7 @@ Die Pipeline besteht aus vier Workflows (Details in `docs/CI-CD-Pipeline.md`):
 
 | Workflow | Auslöser | Zweck |
 |---|---|---|
-| `build.yml` (`Build & Test`) | Push, Pull Request auf `main` | `./gradlew build` (Unit-, E2E-Tests, Coverage-Gate), Upload des JaCoCo-Reports; auf `main` zusätzlich Eintrag in die Coverage-Zeitreihe |
+| `build.yml` (`Build & Test`) | Push, Pull Request auf `main` | `./gradlew build` (Unit-, E2E-Tests, Coverage-Gate), Upload von JaCoCo- und Test-Report; auf `main` zusätzlich Eintrag in die Coverage-Zeitreihe |
 | `mutationtesting.yml` | Push, Pull Request auf `main` | PIT mit Gate, Upload des PIT-Reports |
 | `release.yml` | Tag `vX.Y.Z` | Tests, JAR bauen, GitHub Release (`RELEASE.md`) |
 | `dockerimageupdate.yml` | Änderung am Dockerfile auf `main` | Image bauen und veröffentlichen, Versionen automatisch nachziehen |
