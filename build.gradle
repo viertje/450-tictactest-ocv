@@ -109,10 +109,11 @@ pitest {
 	threads = 4
 	outputFormats = ['HTML', 'XML']
 	timestampedReports = false
-	// No threshold yet -- this first run is to see the baseline mutation
-	// score. Once that's known, mutationThreshold can be set to fail the
-	// build below it, the same way a coverage gate would.
-	mutationThreshold = 0
+	// Baseline (2026-10-23): 92 % mutation coverage (73 of 79 mutants killed), 100 % test strength.
+	// The 6 survivors are all in HumanPlayer, which only the E2E tests execute (not run by PIT).
+	// 90 leaves a little room below the baseline: a new class with a couple of untested mutants
+	// doesn't fail the build at once, but a real drop in test quality does.
+	mutationThreshold = 90
 }
 
 dependencies {

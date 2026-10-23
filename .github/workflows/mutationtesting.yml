@@ -1,10 +1,13 @@
 name: Mutation testing
 
 on:
-  # Manual only: PIT reruns the whole test suite once per mutant, so it's much
-  # slower than a normal build. Triggering it automatically on every push/PR
-  # would noticeably slow down the fast feedback loop build.yml is meant to
-  # give -- this is a deliberate, occasional check instead.
+  # Same triggers as build.yml, so every commit leaves a PIT report behind. PIT reruns the test
+  # suite once per mutant and is much slower than a normal build, but this is a separate
+  # workflow: it runs in parallel and does not delay the fast Build & Test feedback.
+  push:
+    branches-ignore: [ 'gh-pages' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -44,9 +47,8 @@ jobs:
         run: ./gradlew pitest --no-daemon
 
       - name: Upload PIT HTML report
-        # Runs even if the mutation score is low -- pitest{} has no
-        # mutationThreshold set, so this step only fails to produce a report
-        # if PIT itself crashed, e.g. a compile error.
+        # Runs even if the mutation score is below the threshold in build.gradle
+        # (the pitest step above fails then), so the report is there to see what survived.
         if: always()
         uses: actions/upload-artifact@v4
         with:
