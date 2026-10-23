@@ -100,6 +100,8 @@ check.dependsOn jacocoTestCoverageVerification
 // passes is a gap the coverage percentage alone can't reveal.
 pitest {
 	junit5PluginVersion = '1.2.3'
+	// PIT itself: the plugin's default (1.22.1) is several releases behind the current 1.30.1.
+	pitestVersion = '1.30.1'
 	targetClasses = ['ch.bbw.m450.tictactoe.*']
 	// Named explicitly rather than a wildcard, so adding the (much slower) E2E suite under
 	// ch.bbw.m450.tictactoe.e2e doesn't silently drag it into every PIT run too. Comparing unit
@@ -121,6 +123,6 @@ dependencies {
 	testImplementation 'org.junit.jupiter:junit-jupiter:6.1.3'
 	// End-to-end console-I/O simulation for the "e2e" tests below (@StdIo / StdIn / StdOut).
 	testImplementation 'org.junit-pioneer:junit-pioneer:2.3.0'
-	testImplementation 'com.tngtech.archunit:archunit:1.5.0'
+	testImplementation 'com.tngtech.archunit:archunit:1.5.1'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
