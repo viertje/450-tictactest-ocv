@@ -95,6 +95,16 @@ jobs:
         with:
           name: tictactest-jar
 
+      - name: Package frontend
+        # The frontend is a release asset like the JAR: the archive that gets deployed is the
+        # one attached to the release, never a rebuilt one. Its version.txt is overwritten with
+        # the tag version, so the frontend reports the release it came from. config.js stays in
+        # the archive with its local defaults (so the assets run locally on their own); the
+        # cloud deployment must exclude it, because there the infrastructure owns that file.
+        run: |
+          echo "$VERSION" > frontend/version.txt
+          (cd frontend && zip -r -X "../tictactest-frontend-${VERSION}.zip" .)
+
       - name: Extract release notes from CHANGELOG
         # Everything between this version's heading and the next "## " heading.
         run: |
@@ -105,7 +115,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "tictactest-${VERSION}.jar" \
+          gh release create "$GITHUB_REF_NAME" \
+            "tictactest-${VERSION}.jar" \
+            "tictactest-frontend-${VERSION}.zip" \
             --title "TicTacTest $GITHUB_REF_NAME" \
             --notes-file release-notes.md \
             --verify-tag
