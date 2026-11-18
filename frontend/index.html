@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TicTacTest im Browser</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>TicTacTest</h1>
+
+    <section class="rules">
+      <h2>Spielregeln</h2>
+      <ul>
+        <li>Du spielst <strong>X</strong> und beginnst. Der Computer spielt <strong>O</strong>.</li>
+        <li>Die Felder sind von <strong>0 bis 8</strong> nummeriert, zeilenweise von oben links.</li>
+        <li>Tippe die Nummer eines freien Feldes ins Terminal und drücke <kbd>Enter</kbd>.</li>
+        <li>Wer zuerst drei Steine in einer Reihe hat, gewinnt.</li>
+        <li>Nach Spielende oder bei einer ungültigen Feldnummer endet die Partie. Mit «Neues Spiel» startest du eine neue.</li>
+      </ul>
+    </section>
+
+    <div class="toolbar">
+      <button id="restart" type="button">Neues Spiel</button>
+    </div>
+
+    <iframe id="terminal" title="TicTacTest-Terminal"></iframe>
+    <p id="config-error" class="error" hidden>
+      Die Konfiguration (<code>config.js</code>) fehlt oder enthält keine <code>consoleUrl</code>.
+    </p>
+
+    <footer>
+      <span>Backend: <strong id="backend-version">…</strong></span>
+      <span>Frontend: <strong id="frontend-version">…</strong></span>
+    </footer>
+  </main>
+
+  <!-- config.js must load BEFORE app.js: it holds the per-environment settings. -->
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

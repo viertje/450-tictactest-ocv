@@ -2,6 +2,20 @@
 
 Alle relevanten Änderungen an TicTacTest. Format und Versionierung: siehe `RELEASE.md`.
 
+## 1.1.0 - 2026-11-18
+
+### Added
+- Web-Konsole-Frontend (`frontend/`) und Release-Asset `tictactest-frontend-1.1.0.zip`
+
+## 1.0.1 - 2026-10-20
+
+### Fixed
+- Ungültige Eingaben (z. B. Buchstaben statt einer Zahl) beenden das Spiel nicht mehr mit einem Absturz; es wird erneut nach einem Feld gefragt
+- Mehrere `HumanPlayer` teilen sich einen gemeinsamen `Scanner`, damit keine Eingaben verloren gehen
+
+### Added
+- End-to-End-Tests, die ganze Spiele über simulierte Konsoleneingabe durchspielen
+
 ## 1.0.0 - 2026-10-20
 
 ### Added
@@ -12,12 +26,3 @@ Alle relevanten Änderungen an TicTacTest. Format und Versionierung: siehe `RELE
 - CI-Pipeline mit GitHub Actions in einem versionierten Dev-Container-Image (GHCR)
 - Zeitlicher Verlauf der Testabdeckung auf GitHub Pages
 - Release-Prozess: Release nur per Git-Tag, JAR als GitHub Release
-
-## 1.0.1 - 2026-10-20
-
-### Fixed
-- Ungültige Eingaben (z. B. Buchstaben statt einer Zahl) beenden das Spiel nicht mehr mit einem Absturz; es wird erneut nach einem Feld gefragt
-- Mehrere `HumanPlayer` teilen sich einen gemeinsamen `Scanner`, damit keine Eingaben verloren gehen
-
-### Added
-- End-to-End-Tests, die ganze Spiele über simulierte Konsoleneingabe durchspielen
