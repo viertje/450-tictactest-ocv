@@ -31,4 +31,5 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"Serving version {VERSION} on http://localhost:{PORT}/version")
-    HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    # Plain HTTP on purpose: local stand-in, bound to 127.0.0.1 only, never exposed. NOSONAR
+    HTTPServer(("127.0.0.1", PORT), Handler).serve_forever()  # NOSONAR python:S5332

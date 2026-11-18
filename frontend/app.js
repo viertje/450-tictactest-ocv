@@ -24,7 +24,7 @@
   // The frontend's own version is a file inside the release archive, next to this script.
   showVersion("frontend-version", "version.txt");
 
-  if (!config || !config.consoleUrl) {
+  if (!config?.consoleUrl) {
     byId("config-error").hidden = false;
     byId("backend-version").textContent = "unbekannt";
     return;
