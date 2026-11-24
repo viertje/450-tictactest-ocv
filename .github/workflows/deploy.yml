@@ -1,0 +1,181 @@
+name: Deploy
+
+# Deploys the ARTIFACTS of an existing GitHub release (nothing is rebuilt) to the running
+# environment. It never touches the infrastructure: no `tofu apply` happens here.
+#
+# Two entry points:
+#   - called by release.yml after a release, with the parts that changed since the last one
+#   - started by hand ("Run workflow") to deploy any published version: rollback, or
+#     rebuilding the environment after `tofu destroy` + `tofu apply`
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Version to deploy, without the leading v (e.g. 1.2.0)'
+        type: string
+        required: true
+      backend:
+        description: 'Deploy the jar'
+        type: boolean
+        default: true
+      frontend:
+        description: 'Deploy the frontend'
+        type: boolean
+        default: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Published version to deploy, without the leading v (e.g. 1.2.0)'
+        type: string
+        required: true
+      backend:
+        description: 'Deploy the jar'
+        type: boolean
+        default: true
+      frontend:
+        description: 'Deploy the frontend'
+        type: boolean
+        default: true
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.version }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # enough to download release assets
+
+    # Two deployments at the same time would fight over the same instance and bucket.
+    # A second run waits until the first one is finished (it is never cancelled midway).
+    concurrency:
+      group: deploy-tictactest
+      cancel-in-progress: false
+
+    env:
+      VERSION: ${{ inputs.version }}
+      # Secrets: short-lived Learner Lab credentials. Never echoed; GitHub masks them in logs.
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+      # Variables: addresses and names, no secrets. Written by `tofu apply` outputs.
+      AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+      INSTANCE_ID: ${{ vars.INSTANCE_ID }}
+      ARTIFACT_BUCKET: ${{ vars.ARTIFACT_BUCKET }}
+      FRONTEND_BUCKET: ${{ vars.FRONTEND_BUCKET }}
+      VERSION_URL: ${{ vars.VERSION_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Check inputs
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must look like 1.2.0 (no leading v), got '$VERSION'."
+            exit 1
+          fi
+          for name in INSTANCE_ID ARTIFACT_BUCKET FRONTEND_BUCKET VERSION_URL FRONTEND_URL AWS_DEFAULT_REGION; do
+            if [ -z "${!name}" ]; then
+              echo "::error::GitHub variable for $name is not set. Run scripts/set-github-variables.ps1 after 'tofu apply'."
+              exit 1
+            fi
+          done
+
+      - name: Check AWS credentials
+        run: |
+          if ! aws sts get-caller-identity --query Arn --output text > /dev/null 2>&1; then
+            echo "::error::AWS credentials are missing or expired (Learner Lab credentials end with the lab session). Start the lab, run scripts/refresh-aws-secrets.ps1, then run this workflow again with version $VERSION."
+            exit 1
+          fi
+          echo "AWS credentials are valid."
+
+      - name: Download release assets
+        run: gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --dir assets
+
+      - name: Deploy backend (jar)
+        if: ${{ inputs.backend }}
+        run: |
+          aws s3 cp "assets/tictactest-$VERSION.jar" \
+            "s3://$ARTIFACT_BUCKET/releases/$VERSION/tictactest-$VERSION.jar" --only-show-errors
+
+          # The instance runs the deploy script (installed by OpenTofu); SSM needs no open
+          # port and no SSH key in GitHub.
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "deploy $VERSION" \
+            --parameters "commands=[\"/usr/local/bin/tictactest-deploy $VERSION\"]" \
+            --query Command.CommandId --output text)
+
+          set +e
+          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"
+          WAIT=$?
+          set -e
+          aws ssm get-command-invocation --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID" \
+            --query '{status: Status, output: StandardOutputContent, errors: StandardErrorContent}' --output yaml
+          if [ "$WAIT" -ne 0 ]; then
+            echo "::error::The deploy script failed on the instance (see output above)."
+            exit 1
+          fi
+
+      - name: Verify backend version
+        if: ${{ inputs.backend }}
+        run: |
+          # The service needs a moment; the check passes only when the instance reports
+          # exactly the version we just deployed.
+          for attempt in $(seq 1 24); do
+            RUNNING=$(curl -fsS --max-time 5 "$VERSION_URL" 2>/dev/null | tr -d '[:space:]' || true)
+            if [ "$RUNNING" = "$VERSION" ]; then
+              echo "Backend reports version $RUNNING."
+              exit 0
+            fi
+            echo "Attempt $attempt: backend reports '${RUNNING:-nothing}', expected $VERSION"
+            sleep 5
+          done
+          echo "::error::Backend did not report version $VERSION within 2 minutes."
+          exit 1
+
+      - name: Deploy frontend
+        if: ${{ inputs.frontend }}
+        run: |
+          mkdir site
+          unzip -q "assets/tictactest-frontend-$VERSION.zip" -d site
+          # --delete removes files that no longer exist in this release.
+          # --exclude config.js keeps the file OpenTofu wrote: excluded files are neither
+          # uploaded nor deleted. Without it the archive's local config.js would overwrite
+          # the console URL and the game would stop working in the cloud.
+          # cp uploads every file; sync alone skips files with the same size and an older
+          # timestamp (version.txt 1.1.0 -> 1.1.1), so it is only used afterwards to delete.
+          aws s3 cp site "s3://$FRONTEND_BUCKET" --recursive --exclude "config.js" --only-show-errors
+          aws s3 sync site "s3://$FRONTEND_BUCKET" --delete --exclude "config.js" --only-show-errors
+
+      - name: Verify frontend
+        if: ${{ inputs.frontend }}
+        run: |
+          for attempt in $(seq 1 12); do
+            SERVED=$(curl -fsS --max-time 5 "$FRONTEND_URL/version.txt" 2>/dev/null | tr -d '[:space:]' || true)
+            if [ "$SERVED" = "$VERSION" ]; then
+              echo "Frontend serves version $SERVED."
+              break
+            fi
+            echo "Attempt $attempt: frontend serves '${SERVED:-nothing}', expected $VERSION"
+            sleep 5
+            if [ "$attempt" -eq 12 ]; then
+              echo "::error::Frontend did not serve version $VERSION."
+              exit 1
+            fi
+          done
+          # The infrastructure's config must have survived the deployment.
+          if ! curl -fsS --max-time 5 "$FRONTEND_URL/config.js" | grep -q 'consoleUrl'; then
+            echo "::error::config.js is missing or empty after the frontend deployment."
+            exit 1
+          fi
+          echo "config.js is intact."
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Deploy v$VERSION"
+            echo "- backend: ${{ inputs.backend }}"
+            echo "- frontend: ${{ inputs.frontend }}"
+            echo "- result: ${{ job.status }}"
+          } >> "$GITHUB_STEP_SUMMARY"
