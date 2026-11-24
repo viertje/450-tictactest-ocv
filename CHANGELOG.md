@@ -2,6 +2,11 @@
 
 Alle relevanten Änderungen an TicTacTest. Format und Versionierung: siehe `RELEASE.md`.
 
+## 1.1.1 - 2026-11-24
+
+### Changed
+- Frontend: neue Akzentfarbe
+
 ## 1.1.0 - 2026-11-18
 
 ### Added
