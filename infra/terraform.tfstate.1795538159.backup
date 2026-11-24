@@ -1,0 +1,452 @@
+{
+  "version": 4,
+  "terraform_version": "1.13.9",
+  "serial": 1,
+  "lineage": "e221b133-c44f-dd48-8763-a77a4d188933",
+  "outputs": {
+    "console_url": {
+      "value": "http://54.208.182.157:7681",
+      "type": "string"
+    },
+    "elastic_ip": {
+      "value": "54.208.182.157",
+      "type": "string"
+    },
+    "ssh_command": {
+      "value": "ssh -i ~/.ssh/tictactest-aws ec2-user@54.208.182.157",
+      "type": "string"
+    },
+    "version_url": {
+      "value": "http://54.208.182.157/version",
+      "type": "string"
+    }
+  },
+  "resources": [
+    {
+      "mode": "data",
+      "type": "aws_ami",
+      "name": "al2023",
+      "provider": "provider[\"registry.opentofu.org/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "architecture": "x86_64",
+            "arn": "arn:aws:ec2:us-east-1::image/ami-062caee4b7b602eb0",
+            "block_device_mappings": [
+              {
+                "device_name": "/dev/xvda",
+                "ebs": {
+                  "delete_on_termination": "true",
+                  "encrypted": "false",
+                  "iops": "3000",
+                  "snapshot_id": "snap-0e7a1c85c71597e3f",
+                  "throughput": "125",
+                  "volume_initialization_rate": "0",
+                  "volume_size": "8",
+                  "volume_type": "gp3"
+                },
+                "no_device": "",
+                "virtual_name": ""
+              }
+            ],
+            "boot_mode": "uefi-preferred",
+            "creation_date": "2026-11-20T00:35:06.000Z",
+            "deprecation_time": "2027-02-18T00:37:00.000Z",
+            "description": "Amazon Linux 2023 AMI 2023.12.20261120.0 x86_64 HVM kernel-6.1",
+            "ena_support": true,
+            "executable_users": null,
+            "filter": [
+              {
+                "name": "architecture",
+                "values": [
+                  "x86_64"
+                ]
+              },
+              {
+                "name": "name",
+                "values": [
+                  "al2023-ami-2023.*-x86_64"
+                ]
+              },
+              {
+                "name": "virtualization-type",
+                "values": [
+                  "hvm"
+                ]
+              }
+            ],
+            "hypervisor": "xen",
+            "id": "ami-062caee4b7b602eb0",
+            "image_id": "ami-062caee4b7b602eb0",
+            "image_location": "amazon/al2023-ami-2023.12.20261120.0-kernel-6.1-x86_64",
+            "image_owner_alias": "amazon",
+            "image_type": "machine",
+            "imds_support": "v2.0",
+            "include_deprecated": false,
+            "kernel_id": "",
+            "last_launched_time": "",
+            "most_recent": true,
+            "name": "al2023-ami-2023.12.20261120.0-kernel-6.1-x86_64",
+            "name_regex": null,
+            "owner_id": "137112412989",
+            "owners": [
+              "amazon"
+            ],
+            "platform": "",
+            "platform_details": "Linux/UNIX",
+            "product_codes": [],
+            "public": true,
+            "ramdisk_id": "",
+            "root_device_name": "/dev/xvda",
+            "root_device_type": "ebs",
+            "root_snapshot_id": "snap-0e7a1c85c71597e3f",
+            "sriov_net_support": "simple",
+            "state": "available",
+            "state_reason": {
+              "code": "UNSET",
+              "message": "UNSET"
+            },
+            "tags": {},
+            "timeouts": null,
+            "tpm_support": "",
+            "uefi_data": null,
+            "usage_operation": "RunInstances",
+            "virtualization_type": "hvm"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "data",
+      "type": "aws_iam_instance_profile",
+      "name": "lab",
+      "provider": "provider[\"registry.opentofu.org/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::730335567999:instance-profile/LabInstanceProfile",
+            "create_date": "2026-10-28 10:16:46 +0000 UTC",
+            "id": "AIPA2UC3EMB7XQ5PAUVDK",
+            "name": "LabInstanceProfile",
+            "path": "/",
+            "role_arn": "arn:aws:iam::730335567999:role/LabRole",
+            "role_id": "AROA2UC3EMB7WF2P7UFJ4",
+            "role_name": "LabRole"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_eip",
+      "name": "app",
+      "provider": "provider[\"registry.opentofu.org/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "address": null,
+            "allocation_id": "eipalloc-08eca9603f8994571",
+            "arn": "arn:aws:ec2:us-east-1:730335567999:elastic-ip/eipalloc-08eca9603f8994571",
+            "associate_with_private_ip": null,
+            "association_id": "",
+            "carrier_ip": "",
+            "customer_owned_ip": "",
+            "customer_owned_ipv4_pool": "",
+            "domain": "vpc",
+            "id": "eipalloc-08eca9603f8994571",
+            "instance": "",
+            "ipam_pool_id": null,
+            "network_border_group": "us-east-1",
+            "network_interface": "",
+            "private_dns": null,
+            "private_ip": "",
+            "ptr_record": "",
+            "public_dns": "ec2-54-208-182-157.compute-1.amazonaws.com",
+            "public_ip": "54.208.182.157",
+            "public_ipv4_pool": "amazon",
+            "tags": {
+              "Name": "tictactest-eip"
+            },
+            "tags_all": {
+              "ManagedBy": "OpenTofu",
+              "Name": "tictactest-eip",
+              "Project": "TicTacTest"
+            },
+            "timeouts": null,
+            "vpc": true
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiZGVsZXRlIjoxODAwMDAwMDAwMDAsInJlYWQiOjkwMDAwMDAwMDAwMCwidXBkYXRlIjozMDAwMDAwMDAwMDB9fQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_key_pair",
+      "name": "tictactest",
+      "provider": "provider[\"registry.opentofu.org/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:us-east-1:730335567999:key-pair/tictactest-key",
+            "fingerprint": "xwwXCadkUT6d0ANY5P56mgPEZSNWWSU3/8gwz0qrCek=",
+            "id": "tictactest-key",
+            "key_name": "tictactest-key",
+            "key_name_prefix": "",
+            "key_pair_id": "key-064fcebf388296285",
+            "key_type": "ed25519",
+            "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGTZmHk2hjdlyoF2Q/hMvlse8nUptQchBTkETxFiOahs tictactest-learnerlab",
+            "tags": null,
+            "tags_all": {
+              "ManagedBy": "OpenTofu",
+              "Project": "TicTacTest"
+            }
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "artifacts",
+      "provider": "provider[\"registry.opentofu.org/hashicorp/aws\"]",
+      "instances": [
+        {
+          "status": "tainted",
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::tictactest-artifacts-20261124163359250500000002",
+            "bucket": "tictactest-artifacts-20261124163359250500000002",
+            "bucket_domain_name": "tictactest-artifacts-20261124163359250500000002.s3.amazonaws.com",
+            "bucket_prefix": "tictactest-artifacts-",
+            "bucket_regional_domain_name": null,
+            "cors_rule": [],
+            "force_destroy": true,
+            "grant": [
+              {
+                "id": "a7834301232fab198a46b3756acd5ef38b9b3b8b98f29f1e1a057e669a093771",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": null,
+            "id": "tictactest-artifacts-20261124163359250500000002",
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": null,
+            "object_lock_enabled": null,
+            "policy": "",
+            "region": null,
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "AES256"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": null,
+            "tags_all": {
+              "ManagedBy": "OpenTofu",
+              "Project": "TicTacTest"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": false,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "frontend",
+      "provider": "provider[\"registry.opentofu.org/hashicorp/aws\"]",
+      "instances": [
+        {
+          "status": "tainted",
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::tictactest-frontend-20261124163359250500000001",
+            "bucket": "tictactest-frontend-20261124163359250500000001",
+            "bucket_domain_name": "tictactest-frontend-20261124163359250500000001.s3.amazonaws.com",
+            "bucket_prefix": "tictactest-frontend-",
+            "bucket_regional_domain_name": null,
+            "cors_rule": [],
+            "force_destroy": true,
+            "grant": [
+              {
+                "id": "a7834301232fab198a46b3756acd5ef38b9b3b8b98f29f1e1a057e669a093771",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": null,
+            "id": "tictactest-frontend-20261124163359250500000001",
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": null,
+            "object_lock_enabled": null,
+            "policy": "",
+            "region": null,
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "AES256"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": null,
+            "tags_all": {
+              "ManagedBy": "OpenTofu",
+              "Project": "TicTacTest"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": false,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "app",
+      "provider": "provider[\"registry.opentofu.org/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:us-east-1:730335567999:security-group/sg-095337b7ff897b64b",
+            "description": "TicTacTest web console, version endpoint, optional SSH",
+            "egress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "All outbound traffic",
+                "from_port": 0,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "-1",
+                "security_groups": [],
+                "self": false,
+                "to_port": 0
+              }
+            ],
+            "id": "sg-095337b7ff897b64b",
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "Version endpoint (nginx)",
+                "from_port": 80,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 80
+              },
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "Web console (ttyd)",
+                "from_port": 7681,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 7681
+              }
+            ],
+            "name": "tictactest-app",
+            "name_prefix": "",
+            "owner_id": "730335567999",
+            "revoke_rules_on_delete": false,
+            "tags": null,
+            "tags_all": {
+              "ManagedBy": "OpenTofu",
+              "Project": "TicTacTest"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-01076fedecd4ee5db"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6OTAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0="
+        }
+      ]
+    }
+  ],
+  "check_results": [
+    {
+      "object_kind": "var",
+      "config_addr": "var.ttyd_sha256",
+      "status": "pass",
+      "objects": [
+        {
+          "object_addr": "var.ttyd_sha256",
+          "status": "pass"
+        }
+      ]
+    }
+  ]
+}
