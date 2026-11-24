@@ -142,6 +142,9 @@ jobs:
           # --exclude config.js keeps the file OpenTofu wrote: excluded files are neither
           # uploaded nor deleted. Without it the archive's local config.js would overwrite
           # the console URL and the game would stop working in the cloud.
+          # cp uploads every file; sync alone skips files with the same size and an older
+          # timestamp (version.txt 1.1.0 -> 1.1.1), so it is only used afterwards to delete.
+          aws s3 cp site "s3://$FRONTEND_BUCKET" --recursive --exclude "config.js" --only-show-errors
           aws s3 sync site "s3://$FRONTEND_BUCKET" --delete --exclude "config.js" --only-show-errors
 
       - name: Verify frontend

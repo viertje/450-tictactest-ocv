@@ -22,6 +22,12 @@ function Invoke-Checked {
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Version must look like 1.2.0 (no leading v)" }
 
+# 0. Safety: only run against the Learner Lab account (role voclabs), never the company account.
+$arn = aws sts get-caller-identity --query Arn --output text 2>$null
+if ($LASTEXITCODE -ne 0 -or $arn -notmatch 'voclabs') {
+    throw "Not signed in to the Learner Lab (got: '$arn'). Run aws-school in this terminal first, then try again."
+}
+
 # 1. Addresses and names come from the infrastructure (OpenTofu outputs).
 $out = tofu "-chdir=$InfraDir" output -json | ConvertFrom-Json
 $instanceId = $out.instance_id.value
@@ -29,6 +35,9 @@ $artifactBucket = $out.artifact_bucket.value
 $frontendBucket = $out.frontend_bucket.value
 $versionUrl = $out.version_url.value
 $frontendUrl = "http://" + ($out.game_url.value -replace '^http://', '').TrimEnd('/')
+if (-not $instanceId -or -not $artifactBucket -or -not $frontendBucket) {
+    throw "OpenTofu outputs are empty - is infra/terraform.tfstate present? Run 'tofu -chdir=infra output' to check."
+}
 
 # 2. The deployed files are the release assets, never a local build.
 $assets = Join-Path $env:TEMP "tictactest-$Version"
@@ -66,6 +75,9 @@ if (-not $SkipFrontend) {
     # 5. Frontend: replace the bucket content, but keep config.js (written by OpenTofu).
     $site = Join-Path $assets "site"
     Expand-Archive "$assets\tictactest-frontend-$Version.zip" -DestinationPath $site -Force
+    # cp uploads every file. sync alone skips files with the same size and an older timestamp
+    # (e.g. version.txt 1.1.0 -> 1.1.1, or a colour change in style.css), so it would miss real changes.
+    Invoke-Checked aws s3 cp $site "s3://$frontendBucket" --recursive --exclude "config.js"
     Invoke-Checked aws s3 sync $site "s3://$frontendBucket" --delete --exclude "config.js"
 
     $served = (Invoke-RestMethod "$frontendUrl/version.txt" -TimeoutSec 10).ToString().Trim()

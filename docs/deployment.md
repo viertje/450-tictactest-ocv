@@ -92,7 +92,7 @@ Pipeline. Voraussetzungen: Lab gestartet, `aws-school` aktiv, `gh` angemeldet.
 | 3. Instanz deployt das Jar | `aws ssm send-command --instance-ids <id> --document-name AWS-RunShellScript --parameters file://params.json` (Befehl: `/usr/local/bin/tictactest-deploy <Version>`) |
 | 4. Auf das Ende warten, Ausgabe lesen | `aws ssm wait command-executed ...`, `aws ssm get-command-invocation ...` |
 | 5. Version prüfen | Abfrage der Versionsadresse (`version_url`) liefert `<Version>` |
-| 6. Frontend entpacken und hochladen | `aws s3 sync <Ordner> s3://<frontend_bucket> --delete --exclude "config.js"` |
+| 6. Frontend entpacken und hochladen | `aws s3 cp <Ordner> s3://<frontend_bucket> --recursive --exclude "config.js"`, danach `aws s3 sync ... --delete --exclude "config.js"` (nur zum Löschen alter Dateien; `sync` allein überspringt Dateien mit gleicher Grösse und älterem Zeitstempel) |
 | 7. Frontend prüfen | `<game_url>/version.txt` liefert `<Version>` |
 
 Aufruf: `.\scripts\deploy-manual.ps1 -Version 1.1.0`, nur Frontend mit `-SkipBackend`.
