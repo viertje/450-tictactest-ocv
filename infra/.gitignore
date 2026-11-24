@@ -1,0 +1,34 @@
+# --- OpenTofu / Terraform: local working files ---
+.terraform/
+crash.log
+crash.*.log
+*.tfplan
+tfplan
+
+# --- State: can contain sensitive values, never commit ---
+*.tfstate
+*.tfstate.*
+
+# --- Variable files with personal values (commit *.tfvars.example instead) ---
+*.tfvars
+*.tfvars.json
+
+# --- Local overrides ---
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# --- Keys and credentials ---
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+tictactest-aws
+.aws/
+.aws-school/
+credentials
+
+# --- Exception: the provider lock file MUST be committed ---
+# (needed because a root-level ".*" rule would otherwise hide it)
+!.terraform.lock.hcl

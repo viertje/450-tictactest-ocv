@@ -121,3 +121,39 @@ jobs:
             --title "TicTacTest $GITHUB_REF_NAME" \
             --notes-file release-notes.md \
             --verify-tag
+
+  changes:
+    name: Detect changed parts
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Full history and all tags: the comparison is against the previous RELEASE TAG.
+          fetch-depth: 0
+
+      - name: Detect changes since the previous release
+        id: detect
+        # `bash script`, not ./script: files committed from Windows are not executable.
+        run: bash scripts/detect-changes.sh "$GITHUB_REF_NAME" | tee -a "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy
+    # Only after the release exists (the deployment downloads its assets), and only for the
+    # parts that changed. A normal push to main never gets here: this workflow runs on tags only.
+    needs: [verify, release, changes]
+    if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy.yml
+    with:
+      version: ${{ needs.verify.outputs.version }}
+      backend: ${{ needs.changes.outputs.backend == 'true' }}
+      frontend: ${{ needs.changes.outputs.frontend == 'true' }}
+    secrets: inherit

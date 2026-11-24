@@ -1,0 +1,131 @@
+#!/bin/bash
+# First-boot setup, run once as root by cloud-init. This is INFRASTRUCTURE: it prepares the
+# machine and installs the deploy script. It contains no application version.
+set -euo pipefail
+exec > >(tee /var/log/tictactest-setup.log) 2>&1
+
+# --- Runtime and web server ---------------------------------------------------------------
+dnf install -y java-25-amazon-corretto-headless nginx
+
+# --- ttyd: pinned version, checksum verified ----------------------------------------------
+curl -fsSL -o /usr/local/bin/ttyd "https://github.com/tsl0922/ttyd/releases/download/${ttyd_version}/ttyd.x86_64"
+echo "${ttyd_sha256}  /usr/local/bin/ttyd" | sha256sum -c -
+chmod 755 /usr/local/bin/ttyd
+
+# --- Service user and directories ---------------------------------------------------------
+useradd --system --home-dir /opt/tictactest --shell /sbin/nologin tictactest
+install -d -m 755 /opt/tictactest /opt/tictactest/releases
+
+# --- systemd unit: ttyd starts ONLY the jar, as an unprivileged user ----------------------
+cat > /etc/systemd/system/tictactest.service <<'UNIT'
+[Unit]
+Description=TicTacTest web console (ttyd running the release jar)
+After=network-online.target
+Wants=network-online.target
+# Nothing to start before the first deployment has put a jar in place.
+ConditionPathExists=/opt/tictactest/current.jar
+
+[Service]
+User=tictactest
+Group=tictactest
+WorkingDirectory=/opt/tictactest
+# Never a shell: the command is fixed. -W lets the browser send keystrokes, -m limits players.
+ExecStart=/usr/local/bin/ttyd -W -p ${console_port} -m ${max_clients} /usr/bin/java -jar /opt/tictactest/current.jar
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+# --- nginx: only the version endpoint -----------------------------------------------------
+cat > /etc/nginx/nginx.conf <<'NGINX'
+user nginx;
+worker_processes 1;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 128;
+}
+
+http {
+    access_log /var/log/nginx/access.log;
+    default_type text/plain;
+
+    server {
+        listen 80 default_server;
+        server_name _;
+
+        # The frontend lives on another origin (the S3 website), so the browser only lets it
+        # read this answer if it carries a CORS header naming exactly that origin.
+        location = /version {
+            alias /opt/tictactest/VERSION;
+            add_header Access-Control-Allow-Origin "${frontend_origin}" always;
+            add_header Cache-Control "no-store" always;
+        }
+
+        location / {
+            return 404;
+        }
+    }
+}
+NGINX
+nginx -t
+
+# --- Deploy script: the one operation the pipeline (or you) runs per release --------------
+cat > /usr/local/bin/tictactest-deploy <<'DEPLOY'
+#!/bin/bash
+# Usage: tictactest-deploy 1.2.0   (the jar must already be in the artifact bucket)
+set -euo pipefail
+
+VERSION="$1"
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "ERROR: version must look like 1.2.0, got '$VERSION'" >&2
+    exit 2
+fi
+
+BUCKET="${artifact_bucket}"
+JAR="/opt/tictactest/releases/tictactest-$VERSION.jar"
+
+aws s3 cp "s3://$BUCKET/releases/$VERSION/tictactest-$VERSION.jar" "$JAR.tmp" --only-show-errors
+
+# Smoke test BEFORE switching: a jar that cannot even launch must not replace the running one.
+# With stdin closed a healthy game stops at its first prompt; we only look for launcher errors.
+set +e
+OUT=$(timeout 20 java -jar "$JAR.tmp" </dev/null 2>&1)
+set -e
+if grep -qE 'Invalid or corrupt jarfile|UnsupportedClassVersionError|Could not find or load main class|no main manifest attribute' <<<"$OUT"; then
+    rm -f "$JAR.tmp"
+    echo "ERROR: jar $VERSION does not start, keeping the running version:" >&2
+    head -5 <<<"$OUT" >&2
+    exit 1
+fi
+
+mv "$JAR.tmp" "$JAR"
+chmod 644 "$JAR"
+ln -sfn "$JAR" /opt/tictactest/current.jar
+echo "$VERSION" > /opt/tictactest/VERSION.tmp
+chmod 644 /opt/tictactest/VERSION.tmp
+mv /opt/tictactest/VERSION.tmp /opt/tictactest/VERSION
+
+# Running players are disconnected by this restart (see docs/deployment.md).
+systemctl restart tictactest
+sleep 2
+if ! systemctl is-active --quiet tictactest; then
+    echo "ERROR: service is not active after restart" >&2
+    journalctl -u tictactest -n 20 --no-pager >&2
+    exit 1
+fi
+echo "Deployed $VERSION"
+DEPLOY
+chmod 755 /usr/local/bin/tictactest-deploy
+
+# --- Start on every boot; the service itself waits for the first deployment ---------------
+systemctl daemon-reload
+systemctl enable tictactest
+systemctl enable --now nginx
+echo "TicTacTest setup finished"
