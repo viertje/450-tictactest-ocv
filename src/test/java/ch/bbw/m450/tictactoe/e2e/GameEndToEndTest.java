@@ -89,6 +89,7 @@ class GameEndToEndTest {
 		TicTacToeMain.main(new String[0]);
 
 		assertThat(out.capturedString())
+				.contains("Willkommen bei TicTacTest!")
 				.contains("where to to put the next")
 				.contains("...and the winner is: " + Stone.CROSS);
 	}
