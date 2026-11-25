@@ -18,6 +18,7 @@ public class TicTacToeMain {
 
 	@SuppressWarnings("java:S1172") // required entry-point signature; args intentionally unused
 	public static void main(String[] args) {
+		System.out.println("Willkommen bei TicTacTest!");
 		play(new HumanPlayer(), new GreedyPlayer());
 	}
 

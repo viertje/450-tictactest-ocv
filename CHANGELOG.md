@@ -2,6 +2,11 @@
 
 Alle relevanten Änderungen an TicTacTest. Format und Versionierung: siehe `RELEASE.md`.
 
+## 1.1.4 - 2026-11-25
+
+### Changed
+- Backend: Begrüssung beim Start des Spiels
+
 ## 1.1.3 - 2026-11-25
 
 ### Changed
