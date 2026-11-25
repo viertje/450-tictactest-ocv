@@ -2,6 +2,11 @@
 
 Alle relevanten Änderungen an TicTacTest. Format und Versionierung: siehe `RELEASE.md`.
 
+## 1.1.2 - 2026-11-25
+
+### Changed
+- Frontend: Seitentitel angepasst
+
 ## 1.1.2 - 2026-11-24
 
 ### Changed
